@@ -60,8 +60,11 @@ int main(void) {
   	/* Init FSL debug console. */
     BOARD_InitDebugConsole();
 
+    i2c_ReleaseBus();
+    i2c_init();
+
     //uart_configInit();
-    uint8_t i2c_init();
+    //uint8_t i2c_init();
 
 
 

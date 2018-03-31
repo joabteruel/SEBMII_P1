@@ -11,17 +11,77 @@ i2c_master_handle_t i2c_handle;
 volatile bool completionFlag = false;
 volatile bool nakFlag = false;
 
-void i2c_master_callback(I2C_Type *base, i2c_master_handle_t *handle, status_t status, void *userData){
-    /* Signal transfer success when received success status. */
-    if (status == kStatus_Success)
-    {
-        completionFlag = true;
-    }
-    /* Signal transfer success when received success status. */
-    if ((status == kStatus_I2C_Nak) || (status == kStatus_I2C_Addr_Nak))
-    {
-        nakFlag = true;
-    }
+void i2c_master_callback(I2C_Type *base, i2c_master_handle_t *handle,
+		status_t status, void *userData)
+{
+	/* Signal transfer success when received success status. */
+	if (status == kStatus_Success)
+	{
+		completionFlag = true;
+	}
+	/* Signal transfer success when received success status.
+	 if ((status == kStatus_I2C_Nak) || (status == kStatus_I2C_Addr_Nak))
+	 {
+	 nakFlag = true;
+	 }*/
+}
+
+void i2c_release_bus_delay(void)
+{
+	uint32_t i = 0;
+	for (i = 0; i < 100; i++)
+	{
+		__NOP();
+	}
+}
+
+void i2c_ReleaseBus()
+{
+	uint8_t i = 0;
+	gpio_pin_config_t pin_config;
+	port_pin_config_t i2c_pin_config =
+	{ 0 };
+
+	/* Config pin mux as gpio */
+	i2c_pin_config.pullSelect = kPORT_PullUp;
+	i2c_pin_config.mux = kPORT_MuxAsGpio;
+
+	pin_config.pinDirection = kGPIO_DigitalOutput;
+	pin_config.outputLogic = 1U;
+	CLOCK_EnableClock(kCLOCK_PortE);
+	PORT_SetPinConfig(PORTE, 24, &i2c_pin_config);
+	PORT_SetPinConfig(PORTE, 25, &i2c_pin_config);
+
+	GPIO_PinInit(GPIOE, 24, &pin_config);
+	GPIO_PinInit(GPIOE, 25, &pin_config);
+
+	GPIO_PinWrite(GPIOE, 25, 0U);
+	i2c_release_bus_delay();
+
+	for (i = 0; i < 9; i++)
+	{
+		GPIO_PinWrite(GPIOE, 24, 0U);
+		i2c_release_bus_delay();
+
+		GPIO_PinWrite(GPIOE, 25, 1U);
+		i2c_release_bus_delay();
+
+		GPIO_PinWrite(GPIOE, 24, 1U);
+		i2c_release_bus_delay();
+		i2c_release_bus_delay();
+	}
+
+	GPIO_PinWrite(GPIOE, 24, 0U);
+	i2c_release_bus_delay();
+
+	GPIO_PinWrite(GPIOE, 25, 0U);
+	i2c_release_bus_delay();
+
+	GPIO_PinWrite(GPIOE, 24, 1U);
+	i2c_release_bus_delay();
+
+	GPIO_PinWrite(GPIOE, 25, 1U);
+	i2c_release_bus_delay();
 }
 
 uint8_t i2c_init()
@@ -46,129 +106,133 @@ uint8_t i2c_init()
 	return 0;
 }
 
-bool I2C_MEMRead(I2C_Type *base, uint8_t device_addr, uint16_t reg_addr, uint8_t *rxBuff, uint32_t rxSize)
+void I2C_MEMRead(I2C_Type *base, uint8_t device_addr, uint16_t reg_addr,
+		uint8_t *rxBuff, uint32_t rxSize)
 {
-    i2c_master_transfer_t masterXfer;
-    memset(&masterXfer, 0, sizeof(masterXfer));
-    masterXfer.slaveAddress = device_addr;
-    masterXfer.direction = kI2C_Read;
-    masterXfer.subaddress = reg_addr;
-    masterXfer.subaddressSize = 2;
-    masterXfer.data = rxBuff;
-    masterXfer.dataSize = rxSize;
-    masterXfer.flags = kI2C_TransferDefaultFlag;
+	i2c_master_transfer_t masterXfer;
+	memset(&masterXfer, 0, sizeof(masterXfer));
+	masterXfer.slaveAddress = device_addr;
+	masterXfer.direction = kI2C_Read;
+	masterXfer.subaddress = reg_addr;
+	masterXfer.subaddressSize = 2;
+	masterXfer.data = rxBuff;
+	masterXfer.dataSize = rxSize;
+	masterXfer.flags = kI2C_TransferDefaultFlag;
 
-    I2C_MasterTransferNonBlocking(I2C0, &i2c_handle, &masterXfer);
-    /*  wait for transfer completed. */
-    while((!nakFlag) && (!completionFlag))
-    {
-    }
-
-    nakFlag = false;
-
-    if (completionFlag == true)
-    {
-        completionFlag = false;
-        return true;
-    }
-    else
-    {
-        return false;
-    }
+	I2C_MasterTransferNonBlocking(I2C0, &i2c_handle, &masterXfer);
+	/*  wait for transfer completed. */
+	while (!completionFlag)
+	{
+	}
+	completionFlag = false;
 }
 
-bool I2C_MEMWrite(I2C_Type *base, uint8_t device_addr, uint16_t reg_addr, uint8_t *txBuff, uint32_t txSize)
+void I2C_MEMWrite(I2C_Type *base, uint8_t device_addr, uint16_t reg_addr,
+		uint8_t *txBuff, uint32_t txSize)
 {
-    i2c_master_transfer_t masterXfer;
-    memset(&masterXfer, 0, sizeof(masterXfer));
-    masterXfer.slaveAddress = device_addr;
-    masterXfer.direction = kI2C_Write;
-    masterXfer.subaddress = reg_addr;
-    masterXfer.subaddressSize = 2;
-    masterXfer.data = txBuff;
-    masterXfer.dataSize = txSize;
-    masterXfer.flags = kI2C_TransferDefaultFlag;
+	i2c_master_transfer_t masterXfer;
+	memset(&masterXfer, 0, sizeof(masterXfer));
+	masterXfer.slaveAddress = device_addr;
+	masterXfer.direction = kI2C_Write;
+	masterXfer.subaddress = reg_addr;
+	masterXfer.subaddressSize = 2;
+	masterXfer.data = txBuff;
+	masterXfer.dataSize = txSize;
+	masterXfer.flags = kI2C_TransferDefaultFlag;
 
-    I2C_MasterTransferNonBlocking(I2C0, &i2c_handle, &masterXfer);
+	I2C_MasterTransferNonBlocking(I2C0, &i2c_handle, &masterXfer);
+	/*  wait for transfer completed. */
+	while (!completionFlag)
+	{
+	}
+	completionFlag = false;
+	/*  wait for transfer completed.
+	 while ((!nakFlag) && (!completionFlag))
+	 {
+	 }
 
-    /*  wait for transfer completed. */
-    while ((!nakFlag) && (!completionFlag))
-    {
-    }
+	 nakFlag = false;
 
-    nakFlag = false;
-
-    if (completionFlag == true)
-    {
-        completionFlag = false;
-        return true;
-    }
-    else
-    {
-        return false;
-    }
+	 if (completionFlag == true)
+	 {
+	 completionFlag = false;
+	 return true;
+	 }
+	 else
+	 {
+	 return false;
+	 }*/
 }
 
-bool I2C_Read(I2C_Type *base, uint8_t device_addr, uint8_t reg_addr, uint8_t *rxBuff, uint32_t rxSize)
+void I2C_Read(I2C_Type *base, uint8_t device_addr, uint8_t reg_addr,
+		uint8_t *rxBuff, uint32_t rxSize)
 {
-    i2c_master_transfer_t masterXfer;
-    memset(&masterXfer, 0, sizeof(masterXfer));
-    masterXfer.slaveAddress = device_addr;
-    masterXfer.direction = kI2C_Read;
-    masterXfer.subaddress = reg_addr;
-    masterXfer.subaddressSize = 1;
-    masterXfer.data = rxBuff;
-    masterXfer.dataSize = rxSize;
-    masterXfer.flags = kI2C_TransferDefaultFlag;
+	i2c_master_transfer_t masterXfer;
+	memset(&masterXfer, 0, sizeof(masterXfer));
+	masterXfer.slaveAddress = device_addr;
+	masterXfer.direction = kI2C_Read;
+	masterXfer.subaddress = reg_addr;
+	masterXfer.subaddressSize = 1;
+	masterXfer.data = rxBuff;
+	masterXfer.dataSize = rxSize;
+	masterXfer.flags = kI2C_TransferDefaultFlag;
 
-    I2C_MasterTransferNonBlocking(I2C0, &i2c_handle, &masterXfer);
-    /*  wait for transfer completed. */
-    while((!nakFlag) && (!completionFlag))
-    {
-    }
+	I2C_MasterTransferNonBlocking(I2C0, &i2c_handle, &masterXfer);
+	while (!completionFlag)
+	{
+	}
+	completionFlag = false;
+	/*  wait for transfer completed.
+	 while((!nakFlag) && (!completionFlag))
+	 {
+	 }
 
-    nakFlag = false;
+	 nakFlag = false;
 
-    if (completionFlag == true)
-    {
-        completionFlag = false;
-        return true;
-    }
-    else
-    {
-        return false;
-    }
+	 if (completionFlag == true)
+	 {
+	 completionFlag = false;
+	 return true;
+	 }
+	 else
+	 {
+	 return false;
+	 }*/
 }
 
-bool I2C_Write(I2C_Type *base, uint8_t device_addr, uint8_t reg_addr, uint8_t value)
+void I2C_Write(I2C_Type *base, uint8_t device_addr, uint8_t reg_addr,
+		uint8_t value)
 {
-    i2c_master_transfer_t masterXfer;
-    memset(&masterXfer, 0, sizeof(masterXfer));
-    masterXfer.slaveAddress = device_addr;
-    masterXfer.direction = kI2C_Write;
-    masterXfer.subaddress = reg_addr;
-    masterXfer.subaddressSize = 1;
-    masterXfer.data = &value;
-    masterXfer.dataSize = 1;
-    masterXfer.flags = kI2C_TransferDefaultFlag;
+	i2c_master_transfer_t masterXfer;
+	memset(&masterXfer, 0, sizeof(masterXfer));
+	masterXfer.slaveAddress = device_addr;
+	masterXfer.direction = kI2C_Write;
+	masterXfer.subaddress = reg_addr;
+	masterXfer.subaddressSize = 1;
+	masterXfer.data = &value;
+	masterXfer.dataSize = 1;
+	masterXfer.flags = kI2C_TransferDefaultFlag;
 
-    I2C_MasterTransferNonBlocking(I2C0, &i2c_handle, &masterXfer);
+	I2C_MasterTransferNonBlocking(I2C0, &i2c_handle, &masterXfer);
+	while (!completionFlag)
+	{
+	}
+	completionFlag = false;
+	/*  wait for transfer completed.
+	 while ((!nakFlag) && (!completionFlag))
+	 {
+	 }
 
-    /*  wait for transfer completed. */
-    while ((!nakFlag) && (!completionFlag))
-    {
-    }
+	 nakFlag = false;
 
-    nakFlag = false;
-
-    if (completionFlag == true)
-    {
-        completionFlag = false;
-        return true;
-    }
-    else
-    {
-        return false;
-    }
+	 if (completionFlag == true)
+	 {
+	 completionFlag = false;
+	 return true;
+	 }
+	 else
+	 {
+	 return false;
+	 }*/
 }
 
