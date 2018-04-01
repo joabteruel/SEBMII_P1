@@ -32,10 +32,10 @@
  * @file    6_Practica1.c
  * @brief   Application entry point.
  */
+#include <pin_mux_bkp.h>
 #include <stdio.h>
 #include "board.h"
 #include "peripherals.h"
-#include "pin_mux.h"
 #include "clock_config.h"
 #include "MK64F12.h"
 #include "fsl_debug_console.h"
@@ -43,6 +43,8 @@
 
 #include "usertask.h"
 #include "I2C.h"
+#include "SPI.h"
+#include "LCDNokia5110.h"
 
 /* TODO: insert other include files here. */
 
@@ -63,16 +65,21 @@ int main(void) {
     i2c_ReleaseBus();
     i2c_init();
 
+    spi_init();
+    LCDNokia_init();
+
+
+    LCDNokia_sendString((uint8_t*)"Te Amo <3");
+
+
+
     //uart_configInit();
     //uint8_t i2c_init();
 
 
-
-    /* Force the counter to be placed into memory. */
-    volatile static int i = 0 ;
     /* Enter an infinite loop, just incrementing a counter. */
-    while(1) {
-        i++ ;
-    }
+	while (1)
+	{
+	}
     return 0 ;
 }
