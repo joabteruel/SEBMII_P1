@@ -11,19 +11,14 @@ i2c_master_handle_t i2c_handle;
 volatile bool completionFlag = false;
 volatile bool nakFlag = false;
 
-void i2c_master_callback(I2C_Type *base, i2c_master_handle_t *handle,
-		status_t status, void *userData)
+static void i2c_master_callback(I2C_Type *base, i2c_master_handle_t *handle,
+        status_t status, void * userData)
 {
-	/* Signal transfer success when received success status. */
+
 	if (status == kStatus_Success)
 	{
 		completionFlag = true;
 	}
-	/* Signal transfer success when received success status.
-	 if ((status == kStatus_I2C_Nak) || (status == kStatus_I2C_Addr_Nak))
-	 {
-	 nakFlag = true;
-	 }*/
 }
 
 void i2c_release_bus_delay(void)
@@ -84,26 +79,15 @@ void i2c_ReleaseBus()
 	i2c_release_bus_delay();
 }
 
-uint8_t i2c_init()
+void i2c_init()
 {
+
 	i2c_master_config_t masterConfig;
-
-	/*
-	 * masterConfig.baudRate_Bps = 100000U;
-	 * masterConfig.enableHighDrive = false;
-	 * masterConfig.enableStopHold = false;
-	 * masterConfig.glitchFilterWidth = 0U;
-	 * masterConfig.enableMaster = true;
-	 */
-
 	I2C_MasterGetDefaultConfig(&masterConfig);
-
 	masterConfig.baudRate_Bps = I2C_BAUDRATE;
-
-	I2C_MasterInit(I2C0, &masterConfig, CLOCK_GetFreq(I2C0_CLK_SRC));
+	I2C_MasterInit(I2C0, &masterConfig, CLOCK_GetFreq(kCLOCK_BusClk));
 	I2C_MasterTransferCreateHandle(I2C0, &i2c_handle, i2c_master_callback,
 			NULL);
-	return 0;
 }
 
 void I2C_MEMRead(I2C_Type *base, uint8_t device_addr, uint16_t reg_addr,
@@ -204,7 +188,7 @@ void I2C_Write(I2C_Type *base, uint8_t device_addr, uint8_t reg_addr,
 		uint8_t value)
 {
 	i2c_master_transfer_t masterXfer;
-	memset(&masterXfer, 0, sizeof(masterXfer));
+
 	masterXfer.slaveAddress = device_addr;
 	masterXfer.direction = kI2C_Write;
 	masterXfer.subaddress = reg_addr;
@@ -218,6 +202,7 @@ void I2C_Write(I2C_Type *base, uint8_t device_addr, uint8_t reg_addr,
 	{
 	}
 	completionFlag = false;
+
 	/*  wait for transfer completed.
 	 while ((!nakFlag) && (!completionFlag))
 	 {

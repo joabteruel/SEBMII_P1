@@ -46,6 +46,8 @@
 #include "SPI.h"
 #include "LCDNokia5110.h"
 
+#define RTC_DEVICE_ADD 0x6F
+
 /* TODO: insert other include files here. */
 
 /* TODO: insert other definitions and declarations here. */
@@ -56,30 +58,29 @@
 int main(void) {
 
   	/* Init board hardware. */
+    i2c_ReleaseBus();
     BOARD_InitBootPins();
     BOARD_InitBootClocks();
     BOARD_InitBootPeripherals();
   	/* Init FSL debug console. */
     BOARD_InitDebugConsole();
 
-    i2c_ReleaseBus();
     i2c_init();
-
     spi_init();
     LCDNokia_init();
 
+    LCDNokia_sendString((uint8_t*)"Write Test");
 
-    LCDNokia_sendString((uint8_t*)"Te Amo <3");
-
-
+    I2C_Write(I2C0, RTC_DEVICE_ADD, 0x00, 0x80);
+    uint8_t timeBuffer[7];
 
     //uart_configInit();
     //uint8_t i2c_init();
 
-
     /* Enter an infinite loop, just incrementing a counter. */
 	while (1)
 	{
+		I2C_Read(I2C0, RTC_DEVICE_ADD, 0x00, timeBuffer, 7);
 	}
     return 0 ;
 }

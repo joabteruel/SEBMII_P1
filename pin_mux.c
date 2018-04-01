@@ -99,9 +99,19 @@ void BOARD_InitPins(void)
 	CLOCK_EnableClock(kCLOCK_PortB); /* Port B Clock Gate Control: Clock enabled */
 	CLOCK_EnableClock(kCLOCK_PortD); /* Port D Clock Gate Control: Clock enabled */
 	CLOCK_EnableClock(kCLOCK_PortE); /* Port E Clock Gate Control: Clock enabled */
+	CLOCK_EnableClock(kCLOCK_I2c0);
+
 
 	GPIO_PinInit(GPIOD, PIN0_IDX, &port_config);
 	GPIO_PinInit(GPIOD, PIN3_IDX, &port_config);
+
+	port_pin_config_t config_i2c =
+	{ kPORT_PullDisable, kPORT_SlowSlewRate, kPORT_PassiveFilterDisable,
+	        kPORT_OpenDrainDisable, kPORT_LowDriveStrength, kPORT_MuxAlt5,
+	        kPORT_UnlockRegister, };
+
+	PORT_SetPinConfig(PORTE, PIN24_IDX, &config_i2c);
+	PORT_SetPinConfig(PORTE, PIN25_IDX, &config_i2c);
 
 	PORT_SetPinMux(PORTB, PIN16_IDX, kPORT_MuxAlt3); /* PORTB16 (pin E10) is configured as UART0_RX */
 	PORT_SetPinMux(PORTB, PIN17_IDX, kPORT_MuxAlt3); /* PORTB17 (pin E9) is configured as UART0_TX */
