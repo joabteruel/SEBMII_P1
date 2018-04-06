@@ -45,6 +45,7 @@
 #include "I2C.h"
 #include "SPI.h"
 #include "LCDNokia5110.h"
+#include "UART.h"
 
 #define RTC_DEVICE_ADD 0x6F
 
@@ -55,6 +56,7 @@
 /*
  * @brief   Application entry point.
  */
+
 int main(void) {
 
   	/* Init board hardware. */
@@ -68,19 +70,21 @@ int main(void) {
     i2c_init();
     spi_init();
     LCDNokia_init();
+    uart_init();
 
     LCDNokia_sendString((uint8_t*)"Write Test");
 
-    I2C_Write(I2C0, RTC_DEVICE_ADD, 0x00, 0x80);
-    uint8_t timeBuffer[7];
+    os_init();
 
-    //uart_configInit();
-    //uint8_t i2c_init();
+    xTaskCreate(menu0_Task, "menu0_task", configMINIMAL_STACK_SIZE, NULL, configMAX_PRIORITIES-2, NULL);
+    xTaskCreate(timedateLCD_task, "timedateLCD_task", configMINIMAL_STACK_SIZE, NULL, configMAX_PRIORITIES-2, NULL);
+    xTaskCreate(getTime_task, "menu0_task", configMINIMAL_STACK_SIZE, NULL, configMAX_PRIORITIES-1, NULL);
+    vTaskStartScheduler();
 
     /* Enter an infinite loop, just incrementing a counter. */
 	while (1)
 	{
-		I2C_Read(I2C0, RTC_DEVICE_ADD, 0x00, timeBuffer, 7);
+		UART_Echo();
 	}
     return 0 ;
 }

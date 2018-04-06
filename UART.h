@@ -1,20 +1,32 @@
 /*
  * UART.h
  *
- *  Created on: Apr 1, 2018
+ *  Created on: Feb 27, 2017
  *      Author: joab
  */
 
-#ifndef UART_H_
-#define UART_H_
+#ifndef SOURCE_UART_H_
+#define SOURCE_UART_H_
 
+#include "fsl_uart_freertos.h"
 #include "fsl_uart.h"
+#include "pin_mux.h"
+#include "clock_config.h"
 
-#define UART_BAUDRATE 115200
+/*******************************************************************************
+ * Definitions
+ ******************************************************************************/
+#define UART0_BAUDRATE 115200U
+#define UART3_BAUDRATE 115200U
 
-void uart_ConfigInit();
-void uart_txData(UART_Type *base, uint8_t *data, size_t datasize);
-static void uart_Callback(UART_Type *base, uart_handle_t *handle, status_t status, void *userData);
+/*******************************************************************************
+ * Prototypes
+ ******************************************************************************/
+uint8_t UART_Echo(void);
+void uart_init(void);
+void UART_userSend(uint8_t *data, size_t n);
+uart_rtos_handle_t *getHandleUART0();
+uart_rtos_handle_t* getHandleUART3();
 
 
-#endif /* UART_H_ */
+#endif /* SOURCE_UART_H_ */
