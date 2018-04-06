@@ -216,40 +216,53 @@ void timedateLCD_task(void* parameters)
 
 	while (1)
 	{
-		xEventGroupWaitBits(getTime_eventB, EVENT_TIME_SET, pdTRUE, pdTRUE,
+		xEventGroupWaitBits(getTime_eventB, (EVENT_TIME_SET|EVENT_TIME_ERR), pdFALSE, pdFALSE,
 		portMAX_DELAY);
-		do
+		EventBits_t event = xEventGroupGetBits(getTime_eventB);
+		xEventGroupClearBits(getTime_eventB, EVENT_TIME_ERR|EVENT_TIME_SET);
+		if(EVENT_TIME_ERR == (event&EVENT_TIME_ERR))
 		{
-			xQueueReceive(g_time_queue, &asciiDate, portMAX_DELAY);
-		} while (0 != uxQueueMessagesWaiting(g_time_queue));
+			xSemaphoreTake(spibus_mutex, portMAX_DELAY);
+			LCDNokia_clear();
+			LCDNokia_gotoXY(0, 3);
+			LCDNokia_sendString((uint8_t*)"I/O ERROR");
+			xSemaphoreGive(spibus_mutex);
+		}
+		else
+		{
+			do
+			{
+				xQueueReceive(g_time_queue, &asciiDate, portMAX_DELAY);
+			} while (0 != uxQueueMessagesWaiting(g_time_queue));
 
-		xSemaphoreTake(spibus_mutex, portMAX_DELAY);
-		LCDNokia_clear();
-		LCDNokia_gotoXY(0, 0);
-		LCDNokia_sendString((uint8_t*)"Current Time");
-		LCDNokia_gotoXY(16, 1);
-		LCDNokia_sendChar((uint8_t) asciiDate->hours_h); /*! It prints H*/
-		LCDNokia_sendChar((uint8_t) asciiDate->hours_l); /*! It prints h*/
-		LCDNokia_sendChar(':'); /*! It prints a character*/
-		LCDNokia_sendChar((uint8_t) asciiDate->minutes_h); /*! It prints M*/
-		LCDNokia_sendChar((uint8_t) asciiDate->minutes_l); /*! It prints m*/
-		LCDNokia_sendChar(':'); /*! It prints a character*/
-		LCDNokia_sendChar((uint8_t) asciiDate->seconds_h); /*! It prints S*/
-		LCDNokia_sendChar((uint8_t) asciiDate->seconds_l); /*! It prints s*/
-		LCDNokia_gotoXY(0, 3);
-		LCDNokia_sendString((uint8_t*)"Current Date");
-		LCDNokia_gotoXY(8, 4);
-		LCDNokia_sendChar((uint8_t) asciiDate->day_h); /*! It prints a character*/
-		LCDNokia_sendChar((uint8_t) asciiDate->day_l); /*! It prints a character*/
-		LCDNokia_sendChar('/'); /*! It prints a character*/
-		LCDNokia_sendChar((uint8_t) asciiDate->month_h); /*! It prints a character*/
-		LCDNokia_sendChar((uint8_t) asciiDate->month_l); /*! It prints a character*/
-		LCDNokia_sendChar('/');
-		LCDNokia_sendString((uint8_t*)"20"); /*! It prints a character*/
-		LCDNokia_sendChar((uint8_t) asciiDate->year_h); /*! It prints a character*/
-		LCDNokia_sendChar((uint8_t) asciiDate->year_l); /*! It prints a character*/
-		xSemaphoreGive(spibus_mutex);
-		vPortFree(asciiDate);
+			xSemaphoreTake(spibus_mutex, portMAX_DELAY);
+			LCDNokia_clear();
+			LCDNokia_gotoXY(0, 0);
+			LCDNokia_sendString((uint8_t*)"Current Time");
+			LCDNokia_gotoXY(16, 1);
+			LCDNokia_sendChar((uint8_t) asciiDate->hours_h); /*! It prints H*/
+			LCDNokia_sendChar((uint8_t) asciiDate->hours_l); /*! It prints h*/
+			LCDNokia_sendChar(':'); /*! It prints a character*/
+			LCDNokia_sendChar((uint8_t) asciiDate->minutes_h); /*! It prints M*/
+			LCDNokia_sendChar((uint8_t) asciiDate->minutes_l); /*! It prints m*/
+			LCDNokia_sendChar(':'); /*! It prints a character*/
+			LCDNokia_sendChar((uint8_t) asciiDate->seconds_h); /*! It prints S*/
+			LCDNokia_sendChar((uint8_t) asciiDate->seconds_l); /*! It prints s*/
+			LCDNokia_gotoXY(0, 3);
+			LCDNokia_sendString((uint8_t*)"Current Date");
+			LCDNokia_gotoXY(8, 4);
+			LCDNokia_sendChar((uint8_t) asciiDate->day_h); /*! It prints a character*/
+			LCDNokia_sendChar((uint8_t) asciiDate->day_l); /*! It prints a character*/
+			LCDNokia_sendChar('/'); /*! It prints a character*/
+			LCDNokia_sendChar((uint8_t) asciiDate->month_h); /*! It prints a character*/
+			LCDNokia_sendChar((uint8_t) asciiDate->month_l); /*! It prints a character*/
+			LCDNokia_sendChar('/');
+			LCDNokia_sendString((uint8_t*)"20"); /*! It prints a character*/
+			LCDNokia_sendChar((uint8_t) asciiDate->year_h); /*! It prints a character*/
+			LCDNokia_sendChar((uint8_t) asciiDate->year_l); /*! It prints a character*/
+			xSemaphoreGive(spibus_mutex);
+			vPortFree(asciiDate);
+		}
 	}
 }
 
@@ -260,6 +273,7 @@ void getTime_task(void *parameter)
 	static uint8_t timeBuffer[7];
 	ascii_time_t *asciiDate;
 	uint8_t counter =0;
+	status_t i2c_transfer;
 
 	/*Start Timer*/
 	xSemaphoreTake(i2cbus_mutex, portMAX_DELAY);
@@ -269,41 +283,50 @@ void getTime_task(void *parameter)
 	while (1)
 	{
 		xSemaphoreTake(i2cbus_mutex,portMAX_DELAY);
-		I2C_Read(I2C0, RTC_DEVICE_ADD, 0x00, timeBuffer, 7);
+		i2c_transfer = I2C_Read(I2C0, RTC_DEVICE_ADD, 0x00, timeBuffer, 7);
 		xSemaphoreGive(i2cbus_mutex);
 
-		timeBuffer[0] = timeBuffer[0] & SECONDS_REG_SIZE;
-		timeBuffer[1] = timeBuffer[1] & MINUTES_REG_SIZE;
-		timeBuffer[2] = timeBuffer[2] & HOURS_REG_SIZE;
-		timeBuffer[4] = timeBuffer[4] & DAY_REG_SIZE;
-		timeBuffer[5] = timeBuffer[5] & MONTH_REG_SIZE;
-		timeBuffer[6] = timeBuffer[6] & YEAR_REG_SIZE;
+		if(kStatus_Success == i2c_transfer)
+		{
+			timeBuffer[0] = timeBuffer[0] & SECONDS_REG_SIZE;
+			timeBuffer[1] = timeBuffer[1] & MINUTES_REG_SIZE;
+			timeBuffer[2] = timeBuffer[2] & HOURS_REG_SIZE;
+			timeBuffer[4] = timeBuffer[4] & DAY_REG_SIZE;
+			timeBuffer[5] = timeBuffer[5] & MONTH_REG_SIZE;
+			timeBuffer[6] = timeBuffer[6] & YEAR_REG_SIZE;
 
-		//TODO: remove test counter
-		if(counter<9){
-			counter++;
+			//TODO: remove test counter
+			if (counter < 9)
+			{
+				counter++;
+			}
+			else
+			{
+				counter = 0;
+			}
+
+			asciiDate = pvPortMalloc(sizeof(ascii_time_t));
+			asciiDate->seconds_l = ((timeBuffer[0] & BCD_L)) + ASCII_NUMBER_MASK;
+			asciiDate->seconds_h = ((timeBuffer[0] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
+			asciiDate->minutes_l = ((timeBuffer[1] & BCD_L)) + ASCII_NUMBER_MASK;
+			asciiDate->minutes_h = ((timeBuffer[1] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
+			asciiDate->hours_l = ((timeBuffer[2] & BCD_L)) + ASCII_NUMBER_MASK;
+			asciiDate->hours_h = (counter|ASCII_NUMBER_MASK); //TODO: remove test counter ((timeBuffer[2] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
+			asciiDate->day_l = ((timeBuffer[4] & BCD_L)) + ASCII_NUMBER_MASK;
+			asciiDate->day_h = ((timeBuffer[4] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
+			asciiDate->month_l = (counter|ASCII_NUMBER_MASK); //TODO: remove test counter((timeBuffer[5] & BCD_L)) + ASCII_NUMBER_MASK;
+			asciiDate->month_h = ((timeBuffer[5] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
+			asciiDate->year_l = (counter|ASCII_NUMBER_MASK); //TODO: remove test counter((timeBuffer[6] & BCD_L)) + ASCII_NUMBER_MASK;
+			asciiDate->year_h = ((timeBuffer[6] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
+			xQueueSend(g_time_queue, &asciiDate, portMAX_DELAY);
+			xEventGroupSetBits(getTime_eventB, EVENT_TIME_SET);
 		}
-		else{
-			counter = 0;
+		else
+		{
+			xEventGroupSetBits(getTime_eventB, EVENT_TIME_ERR);
 		}
 
-		asciiDate = pvPortMalloc(sizeof(ascii_time_t));
-		asciiDate->seconds_l = ((timeBuffer[0] & BCD_L)) + ASCII_NUMBER_MASK;
-		asciiDate->seconds_h = ((timeBuffer[0] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
-		asciiDate->minutes_l = ((timeBuffer[1] & BCD_L)) + ASCII_NUMBER_MASK;
-		asciiDate->minutes_h = ((timeBuffer[1] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
-		asciiDate->hours_l = ((timeBuffer[2] & BCD_L)) + ASCII_NUMBER_MASK;
-		asciiDate->hours_h = (counter|ASCII_NUMBER_MASK); //TODO: remove test counter ((timeBuffer[2] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
-		asciiDate->day_l = ((timeBuffer[4] & BCD_L)) + ASCII_NUMBER_MASK;
-		asciiDate->day_h = ((timeBuffer[4] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
-		asciiDate->month_l = (counter|ASCII_NUMBER_MASK); //TODO: remove test counter((timeBuffer[5] & BCD_L)) + ASCII_NUMBER_MASK;
-		asciiDate->month_h = ((timeBuffer[5] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
-		asciiDate->year_l = (counter|ASCII_NUMBER_MASK); //TODO: remove test counter((timeBuffer[6] & BCD_L)) + ASCII_NUMBER_MASK;
-		asciiDate->year_h = ((timeBuffer[6] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
-		xQueueSend(g_time_queue, &asciiDate, portMAX_DELAY);
-		xEventGroupSetBits(getTime_eventB, EVENT_TIME_SET);
 		vTaskDelay(pdMS_TO_TICKS(800));
-
 	}
 }
 

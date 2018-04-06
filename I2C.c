@@ -9,12 +9,15 @@
 
 i2c_master_handle_t i2c_handle;
 volatile bool completionFlag = false;
-volatile bool nakFlag = false;
+volatile bool nackFlag = false;
 
 static void i2c_master_callback(I2C_Type *base, i2c_master_handle_t *handle,
         status_t status, void * userData)
 {
-
+	if (status == kStatus_I2C_Addr_Nak)
+	{
+		nackFlag = true;
+	}
 	if (status == kStatus_Success)
 	{
 		completionFlag = true;
@@ -148,7 +151,7 @@ void I2C_MEMWrite(I2C_Type *base, uint8_t device_addr, uint16_t reg_addr,
 	 }*/
 }
 
-void I2C_Read(I2C_Type *base, uint8_t device_addr, uint8_t reg_addr,
+status_t I2C_Read(I2C_Type *base, uint8_t device_addr, uint8_t reg_addr,
 		uint8_t *rxBuff, uint32_t rxSize)
 {
 	i2c_master_transfer_t masterXfer;
@@ -164,27 +167,17 @@ void I2C_Read(I2C_Type *base, uint8_t device_addr, uint8_t reg_addr,
 	I2C_MasterTransferNonBlocking(I2C0, &i2c_handle, &masterXfer);
 	while (!completionFlag)
 	{
+		if (nackFlag)
+		{
+			nackFlag = false;
+			return kStatus_Fail;
+		}
 	}
 	completionFlag = false;
-	/*  wait for transfer completed.
-	 while((!nakFlag) && (!completionFlag))
-	 {
-	 }
-
-	 nakFlag = false;
-
-	 if (completionFlag == true)
-	 {
-	 completionFlag = false;
-	 return true;
-	 }
-	 else
-	 {
-	 return false;
-	 }*/
+	return kStatus_Success;
 }
 
-void I2C_Write(I2C_Type *base, uint8_t device_addr, uint8_t reg_addr,
+status_t I2C_Write(I2C_Type *base, uint8_t device_addr, uint8_t reg_addr,
 		uint8_t value)
 {
 	i2c_master_transfer_t masterXfer;
@@ -200,24 +193,13 @@ void I2C_Write(I2C_Type *base, uint8_t device_addr, uint8_t reg_addr,
 	I2C_MasterTransferNonBlocking(I2C0, &i2c_handle, &masterXfer);
 	while (!completionFlag)
 	{
+		if (nackFlag)
+		{
+			nackFlag = false;
+			return kStatus_Fail;
+		}
 	}
 	completionFlag = false;
-
-	/*  wait for transfer completed.
-	 while ((!nakFlag) && (!completionFlag))
-	 {
-	 }
-
-	 nakFlag = false;
-
-	 if (completionFlag == true)
-	 {
-	 completionFlag = false;
-	 return true;
-	 }
-	 else
-	 {
-	 return false;
-	 }*/
+	return kStatus_Success;
 }
 

@@ -37,6 +37,7 @@
 
 /*Event Bits*/
 #define EVENT_TIME_SET (1<<0)
+#define EVENT_TIME_ERR (1<<1)
 
 /*ASCII Symbols*/
 #define ESC_KEY 0x1B //27
