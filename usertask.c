@@ -10,6 +10,7 @@
 TaskHandle_t menuTask_handle;
 TaskHandle_t timedateLCD_handle;
 TaskHandle_t getTime_handle;
+TaskHandle_t echoTask_handle;
 
 SemaphoreHandle_t i2cbus_mutex;
 SemaphoreHandle_t spibus_mutex;
@@ -39,73 +40,82 @@ void menu0_Task(void *parameter)
 	{
 
 		/**VT100 command for hide cursor*/
-		UART_RTOS_Send(getHandleUART0(), "\e[ ? 25 l", sizeof("\e[ ? 25 l"));
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\e[ ? 25 l", sizeof("\e[ ? 25 l"));
 		/*VT100 command for clearing the screen*/
-		UART_RTOS_Send(getHandleUART0(), "\033[2J", sizeof("\033[2J"));
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[2J", sizeof("\033[2J"));
 		/** VT100 command for positioning the cursor in x and y position*/
-		UART_RTOS_Send(getHandleUART0(), "\033[5;10H", sizeof("\033[5;10H"));
-		UART_RTOS_Send(getHandleUART0(), "Sistemas Basados en Micros\r",
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[5;10H", sizeof("\033[5;10H"));
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"Sistemas Basados en Micros\r",
 				sizeof("Sistemas Basados en Micros\r"));
 		/** VT100 command for positioning the cursor in x and y position*/
-		UART_RTOS_Send(getHandleUART0(), "\033[7;10H", sizeof("\033[7;10H"));
-		UART_RTOS_Send(getHandleUART0(), "    ITESO\r",
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[7;10H", sizeof("\033[7;10H"));
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"    ITESO\r",
 				sizeof("    ITESO\r"));
 		/** VT100 command for positioning the cursor in x and y position*/
-		UART_RTOS_Send(getHandleUART0(), "\033[9;10H", sizeof("\033[9;10H"));
-		UART_RTOS_Send(getHandleUART0(), " Opciones:\r",
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[9;10H", sizeof("\033[9;10H"));
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)" Opciones:\r",
 				sizeof(" Opciones:\r"));
 
-		UART_RTOS_Send(getHandleUART0(), "\033[11;10H",
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[11;10H",
 				sizeof("\033[11;10H"));
-		UART_RTOS_Send(getHandleUART0(), "  1)  Leer Memoria I2C\r",
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"  1)  Leer Memoria I2C\r",
 				sizeof("  1)  Leer Memoria I2C\r"));
 
-		UART_RTOS_Send(getHandleUART0(), "\033[12;10H",
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[12;10H",
 				sizeof("\033[12;10H"));
-		UART_RTOS_Send(getHandleUART0(), "  2)  Escribir memoria I2C\r",
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"  2)  Escribir memoria I2C\r",
 				sizeof("  2)  Escribir memoria I2C\r"));
 
-		UART_RTOS_Send(getHandleUART0(), "\033[13;10H",
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[13;10H",
 				sizeof("\033[13;10H"));
-		UART_RTOS_Send(getHandleUART0(), "  3)  Establecer Hora\r",
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"  3)  Establecer Hora\r",
 				sizeof("  3)  Establecer Hora\r"));
 
-		UART_RTOS_Send(getHandleUART0(), "\033[14;10H",
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[14;10H",
 				sizeof("\033[14;10H"));
-		UART_RTOS_Send(getHandleUART0(), "  4)  Establecer Fecha\r",
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"  4)  Establecer Fecha\r",
 				sizeof("  4)  Establecer Fecha\r"));
 
-		UART_RTOS_Send(getHandleUART0(), "\033[15;10H",
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[15;10H",
 				sizeof("\033[15;10H"));
-		UART_RTOS_Send(getHandleUART0(), "  5)  Formato de hora\r",
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"  5)  Formato de hora\r",
 				sizeof("  5)  Formato de hora\r"));
 
-		UART_RTOS_Send(getHandleUART0(), "\033[16;10H",
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[16;10H",
 				sizeof("\033[16;10H"));
-		UART_RTOS_Send(getHandleUART0(), "  6)  Leer hora\r",
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"  6)  Leer hora\r",
 				sizeof("  6)  Leer hora\r"));
 
-		UART_RTOS_Send(getHandleUART0(), "\033[17;10H",
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[17;10H",
 				sizeof("\033[17;10H"));
-		UART_RTOS_Send(getHandleUART0(), "  7)  Leer fecha\r",
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"  7)  Leer fecha\r",
 				sizeof("  7)  Leer fecha\r"));
 
-		UART_RTOS_Send(getHandleUART0(), "\033[18;10H",
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[18;10H",
 				sizeof("\033[18;10H"));
-		UART_RTOS_Send(getHandleUART0(),
+		UART_RTOS_Send(getHandleUART0(),(uint8_t *)
 				"  8)  Comunicacion con terminal 2\r",
 				sizeof("  8)  Comunicacion con terminal 2\r"));
 
-		UART_RTOS_Send(getHandleUART0(), "\033[19;10H",
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[19;10H",
 				sizeof("\033[19;10H"));
-		UART_RTOS_Send(getHandleUART0(), "  9)  Eco en LCD\r",
+		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"  9)  Eco en LCD\r",
 				sizeof("  9)  Eco en LCD\r"));
 
 		UART_RTOS_Receive(getHandleUART0(), recBuffer, sizeof(recBuffer),
 				&dataSize);
-		if (dataSize>0){
-			UART_RTOS_Send(getHandleUART0(), (uint8_t *)recBuffer, dataSize);
+
+		switch(recBuffer[0]-ASCII_NUMBER_MASK)
+		{
+		case 9:
+			vTaskSuspend(getTime_handle);
+			vTaskSuspend(timedateLCD_handle);
+			xTaskCreate(echo_Task, "echo0_task", configMINIMAL_STACK_SIZE, NULL, configMAX_PRIORITIES-2, NULL);
+			vTaskSuspend(NULL);
+			break;
 		}
+
+
 
 
 //		de_menu_buffer = menu_buffer[0];
@@ -251,7 +261,6 @@ void getTime_task(void *parameter)
 	ascii_time_t *asciiDate;
 	uint8_t counter =0;
 
-
 	/*Start Timer*/
 	xSemaphoreTake(i2cbus_mutex, portMAX_DELAY);
 	I2C_Write(I2C0, RTC_DEVICE_ADD, 0x00, 0x80);
@@ -295,5 +304,58 @@ void getTime_task(void *parameter)
 		xEventGroupSetBits(getTime_eventB, EVENT_TIME_SET);
 		vTaskDelay(pdMS_TO_TICKS(800));
 
+	}
+}
+
+void echo_Task(void *parameter)
+{
+	echoTask_handle = xTaskGetCurrentTaskHandle();
+	uint8_t recvBuffer[1];
+	uint8_t maxChar = 0;
+	size_t dataSize;
+
+	UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[2J", sizeof("\033[2J"));
+	UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[1;1H", sizeof("\033[1;1H"));
+	UART_RTOS_Send(getHandleUART0(), (uint8_t *)"Escribir texto: ",
+			sizeof("Escribir texto: "));
+	UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[2;1H", sizeof("\033[2;1H"));
+
+	xSemaphoreTake(spibus_mutex, portMAX_DELAY);
+	LCDNokia_clear();
+	xSemaphoreGive(spibus_mutex);
+
+	while (1)
+	{
+
+		/* Send data */
+		UART_RTOS_Receive(getHandleUART0(), recvBuffer,
+				sizeof(recvBuffer), &dataSize);
+		if (dataSize > 0)
+		{
+			/* Echo the received data */
+			UART_RTOS_Send(getHandleUART0(), (uint8_t *) recvBuffer, dataSize);
+		}
+
+		if (ESC_KEY == recvBuffer[0])
+		{
+			xSemaphoreTake(spibus_mutex, portMAX_DELAY);
+			LCDNokia_clear();
+			xSemaphoreGive(spibus_mutex);
+			vTaskResume(timedateLCD_handle);
+			vTaskResume(getTime_handle);
+			vTaskResume(menuTask_handle);
+			vTaskDelete(echoTask_handle);
+		}
+		xSemaphoreTake(spibus_mutex, portMAX_DELAY);
+		LCDNokia_sendChar(recvBuffer[0]);
+		xSemaphoreGive(spibus_mutex);
+		maxChar++;
+		if (maxChar >= 72)
+		{
+			xSemaphoreTake(spibus_mutex, portMAX_DELAY);
+			LCDNokia_clear();
+			xSemaphoreGive(spibus_mutex);
+			maxChar = 0;
+		}
 	}
 }

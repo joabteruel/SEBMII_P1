@@ -38,6 +38,9 @@
 /*Event Bits*/
 #define EVENT_TIME_SET (1<<0)
 
+/*ASCII Symbols*/
+#define ESC_KEY 0x1B //27
+
 typedef struct
 {
 	uint8_t seconds_l;
@@ -58,6 +61,8 @@ void os_init();
 void menu0_Task(void *parameter);
 void timedateLCD_task(void* parameters);
 void getTime_task(void *parameter);
+void echo_Task(void *parameter);
+
 
 
 
