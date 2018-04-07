@@ -30,6 +30,8 @@ void os_init()
 }
 
 
+
+
 void menu0_Task(void *parameter)
 {
 	uint8_t recBuffer[1];
@@ -208,6 +210,16 @@ void menu0_Task(void *parameter)
 
 	}			//while
 }
+
+void osNotDeadLED(void * params)
+{
+	while (1)
+	{
+		LED_BLUE_TOGGLE();
+		vTaskDelay(pdMS_TO_TICKS(3000));
+	}
+}
+
 
 void timedateLCD_task(void* parameters)
 {

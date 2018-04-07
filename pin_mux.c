@@ -126,6 +126,18 @@ void BOARD_InitPins(void)
 	SIM->SOPT5 = ((SIM->SOPT5 & (~(SIM_SOPT5_UART0TXSRC_MASK))) /* Mask bits to zero which are setting */
 	| SIM_SOPT5_UART0TXSRC(SOPT5_UART0TXSRC_UART_TX) /* UART 0 transmit data source select: UART0_TX pin */
 	);
+
+	  port_pin_config_t config_led =
+	{ kPORT_PullDisable, kPORT_SlowSlewRate, kPORT_PassiveFilterDisable,
+	kPORT_OpenDrainDisable, kPORT_LowDriveStrength, kPORT_MuxAsGpio,
+	kPORT_UnlockRegister, };
+
+	gpio_pin_config_t led_config_gpio =
+	{ kGPIO_DigitalOutput, 1 };
+
+	PORT_SetPinConfig(PORTB, 21, &config_led);
+	GPIO_PinInit(GPIOB, 21, &led_config_gpio);
+
 }
 
 /*******************************************************************************
