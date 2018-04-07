@@ -84,7 +84,7 @@ int main(void) {
     /* Enter an infinite loop, just incrementing a counter. */
 	while (1)
 	{
-		UART_Echo();
+		//UART_Echo();
 	}
     return 0 ;
 }
