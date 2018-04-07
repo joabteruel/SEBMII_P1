@@ -31,87 +31,28 @@ void os_init()
 
 void menu0_Task(void *parameter)
 {
-	uint8_t recBuffer[1];
-	size_t dataSize;
+	uint8_t recvBuffer;
 	menuTask_handle = xTaskGetCurrentTaskHandle();
 
 	while (1)
 	{
-
-		/**VT100 command for hide cursor*/
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\e[ ? 25 l", sizeof("\e[ ? 25 l"));
-		/*VT100 command for clearing the screen*/
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[2J", sizeof("\033[2J"));
-		/** VT100 command for positioning the cursor in x and y position*/
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[5;10H", sizeof("\033[5;10H"));
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"Sistemas Basados en Micros\r",
-				sizeof("Sistemas Basados en Micros\r"));
-		/** VT100 command for positioning the cursor in x and y position*/
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[7;10H", sizeof("\033[7;10H"));
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"    ITESO\r",
-				sizeof("    ITESO\r"));
-		/** VT100 command for positioning the cursor in x and y position*/
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[9;10H", sizeof("\033[9;10H"));
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)" Opciones:\r",
-				sizeof(" Opciones:\r"));
-
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[11;10H",
-				sizeof("\033[11;10H"));
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"  1)  Leer Memoria I2C\r",
-				sizeof("  1)  Leer Memoria I2C\r"));
-
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[12;10H",
-				sizeof("\033[12;10H"));
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"  2)  Escribir memoria I2C\r",
-				sizeof("  2)  Escribir memoria I2C\r"));
-
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[13;10H",
-				sizeof("\033[13;10H"));
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"  3)  Establecer Hora\r",
-				sizeof("  3)  Establecer Hora\r"));
-
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[14;10H",
-				sizeof("\033[14;10H"));
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"  4)  Establecer Fecha\r",
-				sizeof("  4)  Establecer Fecha\r"));
-
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[15;10H",
-				sizeof("\033[15;10H"));
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"  5)  Formato de hora\r",
-				sizeof("  5)  Formato de hora\r"));
-
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[16;10H",
-				sizeof("\033[16;10H"));
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"  6)  Leer hora\r",
-				sizeof("  6)  Leer hora\r"));
-
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[17;10H",
-				sizeof("\033[17;10H"));
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"  7)  Leer fecha\r",
-				sizeof("  7)  Leer fecha\r"));
-
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[18;10H",
-				sizeof("\033[18;10H"));
-		UART_RTOS_Send(getHandleUART0(),(uint8_t *)
-				"  8)  Comunicacion con terminal 2\r",
-				sizeof("  8)  Comunicacion con terminal 2\r"));
-
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[19;10H",
-				sizeof("\033[19;10H"));
-		UART_RTOS_Send(getHandleUART0(), (uint8_t *)"  9)  Eco en LCD\r",
-				sizeof("  9)  Eco en LCD\r"));
-
-		UART_RTOS_Receive(getHandleUART0(), recBuffer, sizeof(recBuffer),
-				&dataSize);
-
-		switch(recBuffer[0]-ASCII_NUMBER_MASK)
+		UART_putString(UART_0, (uint8_t*) main_menuTxt);
+		recvBuffer = UART_Echo(UART_0);
+		switch (recvBuffer - ASCII_NUMBER_MASK)
 		{
 		case 9:
 			vTaskSuspend(getTime_handle);
 			vTaskSuspend(timedateLCD_handle);
-			xTaskCreate(echo_Task, "echo0_task", configMINIMAL_STACK_SIZE, NULL, configMAX_PRIORITIES-2, NULL);
+			xTaskCreate(echo_Task, "echo0_task", configMINIMAL_STACK_SIZE, NULL,
+					configMAX_PRIORITIES - 2, NULL);
 			vTaskSuspend(NULL);
 			break;
+		default:
+			UART_putString(UART_0, (uint8_t*)
+					"\033[2J"
+					"\033[5;10H"
+					"Seleccion no valida");
+			vTaskDelay(pdMS_TO_TICKS(1500));
 		}
 
 

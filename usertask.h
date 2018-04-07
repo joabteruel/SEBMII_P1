@@ -58,6 +58,23 @@ typedef struct
 	uint8_t year_h;
 }ascii_time_t;
 
+static const uint8_t main_menuTxt[] =
+			"\e[ ? 25 l\033[2J\033[2;2H\r"
+			"----------------------------\r\n"
+			"|     ITESO -- SEMBII      |\r\n"
+			"|       Practica 1         |\r\n"
+			"----------------------------\r\n\n"
+			"Opciones:\r\n\n"
+			"  1)  Leer Memoria I2C\r\n"
+			"  2)  Escribir memoria I2C\r\n"
+			"  3)  Establecer Hora\r\n"
+			"  4)  Establecer Fecha\r\n"
+			"  5)  Formato de hora\r\n"
+			"  6)  Leer hora\r\n"
+			"  7)  Leer fecha\r\n"
+			"  8)  Comunicacion con terminal 2\r\n"
+			"  9)  Eco en LCD\r\n";
+
 void os_init();
 void menu0_Task(void *parameter);
 void timedateLCD_task(void* parameters);

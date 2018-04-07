@@ -97,13 +97,3 @@ uint8_t UART_Echo(UART_Module module){
 	else
 		return 1; //Warning avoidance
 }
-
-uart_rtos_handle_t *getHandleUART0()
-{
-	return &uart0_handler;
-}
-
-uart_rtos_handle_t* getHandleUART3()
-{
-	return &uart3_handler;
-}
