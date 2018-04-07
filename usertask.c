@@ -30,6 +30,8 @@ void os_init()
 }
 
 
+
+
 void menu0_Task(void *parameter)
 {
 	uint8_t recBuffer[1];
@@ -209,6 +211,16 @@ void menu0_Task(void *parameter)
 	}			//while
 }
 
+void osNotDeadLED(void * params)
+{
+	while (1)
+	{
+		LED_BLUE_TOGGLE();
+		vTaskDelay(pdMS_TO_TICKS(3000));
+	}
+}
+
+
 void timedateLCD_task(void* parameters)
 {
 	timedateLCD_handle = xTaskGetCurrentTaskHandle();
@@ -272,8 +284,8 @@ void getTime_task(void *parameter)
 
 	static uint8_t timeBuffer[7];
 	ascii_time_t *asciiDate;
-	uint8_t counter =0;
 	status_t i2c_transfer;
+	bool ioerror = false;
 
 	/*Start Timer*/
 	xSemaphoreTake(i2cbus_mutex, portMAX_DELAY);
@@ -282,6 +294,15 @@ void getTime_task(void *parameter)
 
 	while (1)
 	{
+		//Check if RTC is recovering from disconnect error
+		if (ioerror)
+		{
+			ioerror = false;
+			xSemaphoreTake(i2cbus_mutex, portMAX_DELAY);
+			I2C_Write(I2C0, RTC_DEVICE_ADD, 0x00, 0x80);
+			xSemaphoreGive(i2cbus_mutex);
+		}
+
 		xSemaphoreTake(i2cbus_mutex,portMAX_DELAY);
 		i2c_transfer = I2C_Read(I2C0, RTC_DEVICE_ADD, 0x00, timeBuffer, 7);
 		xSemaphoreGive(i2cbus_mutex);
@@ -295,45 +316,35 @@ void getTime_task(void *parameter)
 			timeBuffer[5] = timeBuffer[5] & MONTH_REG_SIZE;
 			timeBuffer[6] = timeBuffer[6] & YEAR_REG_SIZE;
 
-			//TODO: remove test counter
-			if (counter < 9)
-			{
-				counter++;
-			}
-			else
-			{
-				counter = 0;
-			}
-
 			asciiDate = pvPortMalloc(sizeof(ascii_time_t));
 			asciiDate->seconds_l = ((timeBuffer[0] & BCD_L)) + ASCII_NUMBER_MASK;
 			asciiDate->seconds_h = ((timeBuffer[0] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
 			asciiDate->minutes_l = ((timeBuffer[1] & BCD_L)) + ASCII_NUMBER_MASK;
 			asciiDate->minutes_h = ((timeBuffer[1] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
 			asciiDate->hours_l = ((timeBuffer[2] & BCD_L)) + ASCII_NUMBER_MASK;
-			asciiDate->hours_h = (counter|ASCII_NUMBER_MASK); //TODO: remove test counter ((timeBuffer[2] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
+			asciiDate->hours_h = ((timeBuffer[2] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
 			asciiDate->day_l = ((timeBuffer[4] & BCD_L)) + ASCII_NUMBER_MASK;
 			asciiDate->day_h = ((timeBuffer[4] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
-			asciiDate->month_l = (counter|ASCII_NUMBER_MASK); //TODO: remove test counter((timeBuffer[5] & BCD_L)) + ASCII_NUMBER_MASK;
+			asciiDate->month_l = ((timeBuffer[5] & BCD_L)) + ASCII_NUMBER_MASK;
 			asciiDate->month_h = ((timeBuffer[5] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
-			asciiDate->year_l = (counter|ASCII_NUMBER_MASK); //TODO: remove test counter((timeBuffer[6] & BCD_L)) + ASCII_NUMBER_MASK;
+			asciiDate->year_l = ((timeBuffer[6] & BCD_L)) + ASCII_NUMBER_MASK;
 			asciiDate->year_h = ((timeBuffer[6] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
 			xQueueSend(g_time_queue, &asciiDate, portMAX_DELAY);
 			xEventGroupSetBits(getTime_eventB, EVENT_TIME_SET);
 		}
 		else
 		{
+			ioerror = true;
 			xEventGroupSetBits(getTime_eventB, EVENT_TIME_ERR);
 		}
-
-		vTaskDelay(pdMS_TO_TICKS(800));
+		vTaskDelay(pdMS_TO_TICKS(500));
 	}
 }
 
 void echo_Task(void *parameter)
 {
 	echoTask_handle = xTaskGetCurrentTaskHandle();
-	uint8_t recvBuffer[1];
+	uint8_t recvBuffer;
 	uint8_t maxChar = 0;
 	size_t dataSize;
 
@@ -349,17 +360,9 @@ void echo_Task(void *parameter)
 
 	while (1)
 	{
+		recvBuffer = UART_Echo(UART_0);
 
-		/* Send data */
-		UART_RTOS_Receive(getHandleUART0(), recvBuffer,
-				sizeof(recvBuffer), &dataSize);
-		if (dataSize > 0)
-		{
-			/* Echo the received data */
-			UART_RTOS_Send(getHandleUART0(), (uint8_t *) recvBuffer, dataSize);
-		}
-
-		if (ESC_KEY == recvBuffer[0])
+		if (ESC_KEY == recvBuffer)
 		{
 			xSemaphoreTake(spibus_mutex, portMAX_DELAY);
 			LCDNokia_clear();
@@ -369,8 +372,9 @@ void echo_Task(void *parameter)
 			vTaskResume(menuTask_handle);
 			vTaskDelete(echoTask_handle);
 		}
+
 		xSemaphoreTake(spibus_mutex, portMAX_DELAY);
-		LCDNokia_sendChar(recvBuffer[0]);
+		LCDNokia_sendChar(recvBuffer);
 		xSemaphoreGive(spibus_mutex);
 		maxChar++;
 		if (maxChar >= 72)

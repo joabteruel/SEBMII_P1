@@ -32,36 +32,70 @@ uart_rtos_config_t uart_config_b =
 
 void uart_init(void)
 {
-
 	NVIC_SetPriority(UART0_RX_TX_IRQn, 5);
-
 	uart_config.srcclk = CLOCK_GetFreq(UART0_CLK_SRC);
 	UART_RTOS_Init(&uart0_handler, &t_handle, &uart_config);
-
 	uart_config_b.srcclk = CLOCK_GetFreq(UART3_CLK_SRC);
 	UART_RTOS_Init(&uart3_handler, &t_handle_b, &uart_config_b);
 }
 
-void UART_userSend(uint8_t *data, size_t dataSize)
-{
-	UART_RTOS_Send(&uart0_handler, data, dataSize);
+void UART_putBytes(UART_Module module, uint8_t *data, size_t numBytes){
+	if(UART_0 == module)
+	{
+		UART_RTOS_Send(&uart0_handler, data, numBytes);
+	}
+	if(UART_3 == module)
+	{
+		UART_RTOS_Send(&uart3_handler, data, numBytes);
+	}
 }
 
-uint8_t UART_Echo(void)
+void UART_putString(UART_Module module, uint8_t *string)
 {
+	if (UART_0 == module)
+	{
+		while (*string)
+		{
+			UART_RTOS_Send(&uart0_handler, string++, 1);
+		}
+	}
+	if (UART_3 == module)
+	{
+		while (*string)
+		{
+			UART_RTOS_Send(&uart3_handler, string++, 1);
+		}
+	}
+
+}
+
+
+uint8_t UART_Echo(UART_Module module){
 	size_t dataSize;
 	volatile uint8_t dataInBuffer;
+	uart_rtos_handle_t handle;
+	uint8_t recv_buffer[1];
+
+	if(UART_0 == module)
+	{
+		handle = uart0_handler;
+	}
+	if(UART_3 == module)
+	{
+		handle = uart3_handler;
+	}
 
 	/* Send data */
-	UART_RTOS_Receive(&uart0_handler, uart0_inBuffer, sizeof(uart0_inBuffer),
-			&dataSize);
+	UART_RTOS_Receive(&handle, recv_buffer, sizeof(recv_buffer), &dataSize);
 	if (dataSize > 0)
 	{
 		/* Echo the received data */
-		UART_RTOS_Send(&uart0_handler, (uint8_t *) uart0_inBuffer, dataSize);
-		dataInBuffer = uart0_inBuffer[0];
+		UART_RTOS_Send(&handle, (uint8_t *) recv_buffer, dataSize);
+		dataInBuffer = recv_buffer[0];
 		return dataInBuffer;
 	}
+	else
+		return 1; //Warning avoidance
 }
 
 uart_rtos_handle_t *getHandleUART0()
@@ -73,4 +107,3 @@ uart_rtos_handle_t* getHandleUART3()
 {
 	return &uart3_handler;
 }
-

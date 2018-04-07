@@ -20,13 +20,21 @@
 #define UART3_BAUDRATE 115200U
 
 /*******************************************************************************
+ * Data Types
+ ******************************************************************************/
+typedef enum
+{
+	UART_0, UART_3
+} UART_Module;
+
+/*******************************************************************************
  * Prototypes
  ******************************************************************************/
-uint8_t UART_Echo(void);
+uint8_t UART_Echo(UART_Module module);
 void uart_init(void);
-void UART_userSend(uint8_t *data, size_t n);
+void UART_putString(UART_Module module, uint8_t *string);
+void UART_putBytes(UART_Module module, uint8_t *data, size_t numBytes);
 uart_rtos_handle_t *getHandleUART0();
 uart_rtos_handle_t* getHandleUART3();
-
 
 #endif /* SOURCE_UART_H_ */
