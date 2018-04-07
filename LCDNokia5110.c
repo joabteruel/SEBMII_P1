@@ -178,7 +178,7 @@ void LCD_delay(void)
 {
 	int counter;
 	
-	for(counter=0; counter<15000; counter++)
+	for(counter=0; counter<65535; counter++)
 	{	   
 		
 	}

@@ -7,7 +7,10 @@
 
 #include "I2C.h"
 
+SemaphoreHandle_t i2cbus_mutex_t;
+
 i2c_master_handle_t i2c_handle;
+
 volatile bool completionFlag = false;
 volatile bool nackFlag = false;
 
@@ -91,6 +94,7 @@ void i2c_init()
 	I2C_MasterInit(I2C0, &masterConfig, CLOCK_GetFreq(kCLOCK_BusClk));
 	I2C_MasterTransferCreateHandle(I2C0, &i2c_handle, i2c_master_callback,
 			NULL);
+	i2cbus_mutex_t = xSemaphoreCreateMutex();
 }
 
 void I2C_MEMRead(I2C_Type *base, uint8_t device_addr, uint16_t reg_addr,
@@ -164,6 +168,7 @@ status_t I2C_Read(I2C_Type *base, uint8_t device_addr, uint8_t reg_addr,
 	masterXfer.dataSize = rxSize;
 	masterXfer.flags = kI2C_TransferDefaultFlag;
 
+	xSemaphoreTake(i2cbus_mutex_t, portMAX_DELAY);
 	I2C_MasterTransferNonBlocking(I2C0, &i2c_handle, &masterXfer);
 	while (!completionFlag)
 	{
@@ -174,6 +179,7 @@ status_t I2C_Read(I2C_Type *base, uint8_t device_addr, uint8_t reg_addr,
 		}
 	}
 	completionFlag = false;
+	xSemaphoreGive(i2cbus_mutex_t);
 	return kStatus_Success;
 }
 
