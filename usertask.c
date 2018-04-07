@@ -285,6 +285,8 @@ void getTime_task(void *parameter)
 	static uint8_t timeBuffer[7];
 	ascii_time_t *asciiDate;
 	status_t i2c_transfer;
+	bool ioerror = false;
+
 
 	/*Start Timer*/
 	xSemaphoreTake(i2cbus_mutex, portMAX_DELAY);
@@ -293,6 +295,14 @@ void getTime_task(void *parameter)
 
 	while (1)
 	{
+		if (ioerror)
+		{
+			ioerror = false;
+			xSemaphoreTake(i2cbus_mutex, portMAX_DELAY);
+			I2C_Write(I2C0, RTC_DEVICE_ADD, 0x00, 0x80);
+			xSemaphoreGive(i2cbus_mutex);
+		}
+
 		xSemaphoreTake(i2cbus_mutex,portMAX_DELAY);
 		i2c_transfer = I2C_Read(I2C0, RTC_DEVICE_ADD, 0x00, timeBuffer, 7);
 		xSemaphoreGive(i2cbus_mutex);
@@ -324,6 +334,7 @@ void getTime_task(void *parameter)
 		}
 		else
 		{
+			ioerror = true;
 			xEventGroupSetBits(getTime_eventB, EVENT_TIME_ERR);
 		}
 		vTaskDelay(pdMS_TO_TICKS(500));
