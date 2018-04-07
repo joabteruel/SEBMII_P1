@@ -29,9 +29,6 @@ void os_init()
 	g_time_queue = xQueueCreate(1, sizeof(ascii_time_t*));
 }
 
-
-
-
 void menu0_Task(void *parameter)
 {
 	uint8_t recBuffer[1];
@@ -116,8 +113,6 @@ void menu0_Task(void *parameter)
 			vTaskSuspend(NULL);
 			break;
 		}
-
-
 
 
 //		de_menu_buffer = menu_buffer[0];
@@ -288,9 +283,7 @@ void getTime_task(void *parameter)
 	bool ioerror = false;
 
 	/*Start Timer*/
-	xSemaphoreTake(i2cbus_mutex, portMAX_DELAY);
 	I2C_Write(I2C0, RTC_DEVICE_ADD, 0x00, 0x80);
-	xSemaphoreGive(i2cbus_mutex);
 
 	while (1)
 	{
@@ -298,14 +291,10 @@ void getTime_task(void *parameter)
 		if (ioerror)
 		{
 			ioerror = false;
-			xSemaphoreTake(i2cbus_mutex, portMAX_DELAY);
 			I2C_Write(I2C0, RTC_DEVICE_ADD, 0x00, 0x80);
-			xSemaphoreGive(i2cbus_mutex);
 		}
 
-		xSemaphoreTake(i2cbus_mutex,portMAX_DELAY);
 		i2c_transfer = I2C_Read(I2C0, RTC_DEVICE_ADD, 0x00, timeBuffer, 7);
-		xSemaphoreGive(i2cbus_mutex);
 
 		if(kStatus_Success == i2c_transfer)
 		{
@@ -346,7 +335,6 @@ void echo_Task(void *parameter)
 	echoTask_handle = xTaskGetCurrentTaskHandle();
 	uint8_t recvBuffer;
 	uint8_t maxChar = 0;
-	size_t dataSize;
 
 	UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[2J", sizeof("\033[2J"));
 	UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[1;1H", sizeof("\033[1;1H"));

@@ -67,9 +67,9 @@ int main(void)
 	/* Init FSL debug console. */
 	BOARD_InitDebugConsole();
 
-	i2c_init();
 	spi_init();
 	LCDNokia_init();
+	i2c_init();
 	uart_init();
 	os_init();
 
