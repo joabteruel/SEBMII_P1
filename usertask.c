@@ -287,7 +287,6 @@ void getTime_task(void *parameter)
 	status_t i2c_transfer;
 	bool ioerror = false;
 
-
 	/*Start Timer*/
 	xSemaphoreTake(i2cbus_mutex, portMAX_DELAY);
 	I2C_Write(I2C0, RTC_DEVICE_ADD, 0x00, 0x80);
@@ -295,6 +294,7 @@ void getTime_task(void *parameter)
 
 	while (1)
 	{
+		//Check if RTC is recovering from disconnect error
 		if (ioerror)
 		{
 			ioerror = false;
@@ -344,7 +344,7 @@ void getTime_task(void *parameter)
 void echo_Task(void *parameter)
 {
 	echoTask_handle = xTaskGetCurrentTaskHandle();
-	uint8_t recvBuffer[1];
+	uint8_t recvBuffer;
 	uint8_t maxChar = 0;
 	size_t dataSize;
 
@@ -360,17 +360,9 @@ void echo_Task(void *parameter)
 
 	while (1)
 	{
+		recvBuffer = UART_Echo(UART_0);
 
-		/* Send data */
-		UART_RTOS_Receive(getHandleUART0(), recvBuffer,
-				sizeof(recvBuffer), &dataSize);
-		if (dataSize > 0)
-		{
-			/* Echo the received data */
-			UART_RTOS_Send(getHandleUART0(), (uint8_t *) recvBuffer, dataSize);
-		}
-
-		if (ESC_KEY == recvBuffer[0])
+		if (ESC_KEY == recvBuffer)
 		{
 			xSemaphoreTake(spibus_mutex, portMAX_DELAY);
 			LCDNokia_clear();
@@ -380,8 +372,9 @@ void echo_Task(void *parameter)
 			vTaskResume(menuTask_handle);
 			vTaskDelete(echoTask_handle);
 		}
+
 		xSemaphoreTake(spibus_mutex, portMAX_DELAY);
-		LCDNokia_sendChar(recvBuffer[0]);
+		LCDNokia_sendChar(recvBuffer);
 		xSemaphoreGive(spibus_mutex);
 		maxChar++;
 		if (maxChar >= 72)

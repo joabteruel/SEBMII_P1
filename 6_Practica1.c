@@ -73,8 +73,6 @@ int main(void)
 	uart_init();
 	os_init();
 
-	//LCDNokia_sendString((uint8_t*)"Write Test");
-
 	xTaskCreate(osNotDeadLED, "osNotDead", configMINIMAL_STACK_SIZE, NULL,
 			configMAX_PRIORITIES - 5, NULL);
 	xTaskCreate(menu0_Task, "menu0_task", configMINIMAL_STACK_SIZE, NULL,
@@ -88,7 +86,6 @@ int main(void)
 	/* Enter an infinite loop, just incrementing a counter. */
 	while (1)
 	{
-		//UART_Echo();
 	}
 	return 0;
 }
