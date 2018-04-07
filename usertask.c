@@ -19,15 +19,6 @@ EventGroupHandle_t getTime_eventB;
 
 QueueHandle_t g_time_queue;
 
-void osNotDeadLED(void * params)
-{
-	while(1)
-	{
-		LED_BLUE_TOGGLE();
-		vTaskDelay(pdMS_TO_TICKS(3000));
-	}
-}
-
 void os_init()
 {
 	i2cbus_mutex = xSemaphoreCreateMutex();
@@ -41,9 +32,9 @@ void os_init()
 
 void menu0_Task(void *parameter)
 {
-	menuTask_handle = xTaskGetCurrentTaskHandle();
 	uint8_t recBuffer[1];
 	size_t dataSize;
+	menuTask_handle = xTaskGetCurrentTaskHandle();
 
 	while (1)
 	{
@@ -281,8 +272,8 @@ void getTime_task(void *parameter)
 
 	static uint8_t timeBuffer[7];
 	ascii_time_t *asciiDate;
+	uint8_t counter =0;
 	status_t i2c_transfer;
-	bool ioerror = false;
 
 	/*Start Timer*/
 	xSemaphoreTake(i2cbus_mutex, portMAX_DELAY);
@@ -291,17 +282,9 @@ void getTime_task(void *parameter)
 
 	while (1)
 	{
-		if (ioerror)
-		{
-			ioerror = false;
-			xSemaphoreTake(i2cbus_mutex, portMAX_DELAY);
-			I2C_Write(I2C0, RTC_DEVICE_ADD, 0x00, 0x80);
-			xSemaphoreGive(i2cbus_mutex);
-		}
-
-		//xSemaphoreTake(i2cbus_mutex,portMAX_DELAY);
+		xSemaphoreTake(i2cbus_mutex,portMAX_DELAY);
 		i2c_transfer = I2C_Read(I2C0, RTC_DEVICE_ADD, 0x00, timeBuffer, 7);
-		//xSemaphoreGive(i2cbus_mutex);
+		xSemaphoreGive(i2cbus_mutex);
 
 		if(kStatus_Success == i2c_transfer)
 		{
@@ -312,29 +295,38 @@ void getTime_task(void *parameter)
 			timeBuffer[5] = timeBuffer[5] & MONTH_REG_SIZE;
 			timeBuffer[6] = timeBuffer[6] & YEAR_REG_SIZE;
 
+			//TODO: remove test counter
+			if (counter < 9)
+			{
+				counter++;
+			}
+			else
+			{
+				counter = 0;
+			}
+
 			asciiDate = pvPortMalloc(sizeof(ascii_time_t));
 			asciiDate->seconds_l = ((timeBuffer[0] & BCD_L)) + ASCII_NUMBER_MASK;
 			asciiDate->seconds_h = ((timeBuffer[0] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
 			asciiDate->minutes_l = ((timeBuffer[1] & BCD_L)) + ASCII_NUMBER_MASK;
 			asciiDate->minutes_h = ((timeBuffer[1] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
 			asciiDate->hours_l = ((timeBuffer[2] & BCD_L)) + ASCII_NUMBER_MASK;
-			asciiDate->hours_h = ((timeBuffer[2] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
+			asciiDate->hours_h = (counter|ASCII_NUMBER_MASK); //TODO: remove test counter ((timeBuffer[2] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
 			asciiDate->day_l = ((timeBuffer[4] & BCD_L)) + ASCII_NUMBER_MASK;
 			asciiDate->day_h = ((timeBuffer[4] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
-			asciiDate->month_l = ((timeBuffer[5] & BCD_L)) + ASCII_NUMBER_MASK;
+			asciiDate->month_l = (counter|ASCII_NUMBER_MASK); //TODO: remove test counter((timeBuffer[5] & BCD_L)) + ASCII_NUMBER_MASK;
 			asciiDate->month_h = ((timeBuffer[5] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
-			asciiDate->year_l = ((timeBuffer[6] & BCD_L)) + ASCII_NUMBER_MASK;
+			asciiDate->year_l = (counter|ASCII_NUMBER_MASK); //TODO: remove test counter((timeBuffer[6] & BCD_L)) + ASCII_NUMBER_MASK;
 			asciiDate->year_h = ((timeBuffer[6] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
 			xQueueSend(g_time_queue, &asciiDate, portMAX_DELAY);
 			xEventGroupSetBits(getTime_eventB, EVENT_TIME_SET);
 		}
 		else
 		{
-			ioerror = true;
 			xEventGroupSetBits(getTime_eventB, EVENT_TIME_ERR);
 		}
 
-		vTaskDelay(pdMS_TO_TICKS(500));
+		vTaskDelay(pdMS_TO_TICKS(800));
 	}
 }
 

@@ -11,10 +11,6 @@
 #include "fsl_i2c.h"
 #include "fsl_port.h"
 #include "fsl_gpio.h"
-#include "FreeRTOS.h"
-#include "semphr.h"
-
-
 
 #define I2C_BAUDRATE 100000U
 

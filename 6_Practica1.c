@@ -27,7 +27,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
+ 
 /**
  * @file    6_Practica1.c
  * @brief   Application entry point.
@@ -57,40 +57,34 @@
  * @brief   Application entry point.
  */
 
-int main(void)
-{
+int main(void) {
 
-	/* Init board hardware. */
-	i2c_ReleaseBus();
-	BOARD_InitBootPins();
-	BOARD_InitBootClocks();
-	BOARD_InitBootPeripherals();
-	/* Init FSL debug console. */
-	BOARD_InitDebugConsole();
+  	/* Init board hardware. */
+    i2c_ReleaseBus();
+    BOARD_InitBootPins();
+    BOARD_InitBootClocks();
+    BOARD_InitBootPeripherals();
+  	/* Init FSL debug console. */
+    BOARD_InitDebugConsole();
 
-	i2c_init();
-	spi_init();
-	LCDNokia_init();
-	uart_init();
-	os_init();
+    i2c_init();
+    spi_init();
+    LCDNokia_init();
+    uart_init();
 
-	LCDNokia_clear();
-	LCDNokia_sendString((uint8_t*)"Write Test");
+    LCDNokia_sendString((uint8_t*)"Write Test");
 
-	xTaskCreate(osNotDeadLED, "osNotDead", configMINIMAL_STACK_SIZE, NULL,
-			configMAX_PRIORITIES - 5, NULL);
-	xTaskCreate(menu0_Task, "menu0_task", configMINIMAL_STACK_SIZE, NULL,
-			configMAX_PRIORITIES - 2, NULL);
-	xTaskCreate(timedateLCD_task, "timedateLCD_task", configMINIMAL_STACK_SIZE,
-			NULL, configMAX_PRIORITIES - 2, NULL);
-	xTaskCreate(getTime_task, "menu0_task", configMINIMAL_STACK_SIZE, NULL,
-			configMAX_PRIORITIES - 1, NULL);
-	vTaskStartScheduler();
+    os_init();
 
-	/* Enter an infinite loop, just incrementing a counter. */
+    xTaskCreate(menu0_Task, "menu0_task", configMINIMAL_STACK_SIZE, NULL, configMAX_PRIORITIES-2, NULL);
+    xTaskCreate(timedateLCD_task, "timedateLCD_task", configMINIMAL_STACK_SIZE, NULL, configMAX_PRIORITIES-2, NULL);
+    xTaskCreate(getTime_task, "menu0_task", configMINIMAL_STACK_SIZE, NULL, configMAX_PRIORITIES-1, NULL);
+    vTaskStartScheduler();
+
+    /* Enter an infinite loop, just incrementing a counter. */
 	while (1)
 	{
-		//UART_Echo();
+		UART_Echo();
 	}
-	return 0;
+    return 0 ;
 }

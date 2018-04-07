@@ -63,8 +63,6 @@ void menu0_Task(void *parameter);
 void timedateLCD_task(void* parameters);
 void getTime_task(void *parameter);
 void echo_Task(void *parameter);
-void osNotDeadLED(void * params);
-
 
 
 
