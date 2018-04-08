@@ -14,11 +14,14 @@ TaskHandle_t setTime_handle;
 TaskHandle_t setDate_handle;
 TaskHandle_t hourFormat_handle;
 TaskHandle_t echoTask_handle;
+TaskHandle_t timeTerminal_handle;
+TaskHandle_t dateTerminal_handle;
 
 SemaphoreHandle_t spibus_mutex;
 SemaphoreHandle_t i2cbus_mutex;
 
 EventGroupHandle_t getTime_eventB;
+EventGroupHandle_t timeTerminal_eventB;
 
 QueueHandle_t g_time_queue;
 
@@ -59,6 +62,8 @@ void os_init()
 	spibus_mutex = xSemaphoreCreateMutex();
 	i2cbus_mutex = xSemaphoreCreateMutex();
 	getTime_eventB = xEventGroupCreate();
+	timeTerminal_eventB = xEventGroupCreate();
+
 	g_time_queue = xQueueCreate(1, sizeof(ascii_time_t*));
 }
 
@@ -86,7 +91,15 @@ void menu0_Task(void *parameter)
 			vTaskSuspend(NULL);
 			break;
 		case 5:
-			xTaskCreate(hourFormat_task, "hourFormat_task", configMINIMAL_STACK_SIZE, NULL, configMAX_PRIORITIES, NULL);
+			xTaskCreate(hourFormat_task, "hourFormat_task", configMINIMAL_STACK_SIZE, NULL, configMAX_PRIORITIES-2, NULL);
+			vTaskSuspend(NULL);
+			break;
+		case 6:
+			xTaskCreate(timeTerminal_task, "timeTerminal_task", configMINIMAL_STACK_SIZE, NULL, configMAX_PRIORITIES-2, NULL);
+			vTaskSuspend(NULL);
+			break;
+		case 7:
+			xTaskCreate(dateTerminal_task, "dateTerminal_task", configMINIMAL_STACK_SIZE, NULL, configMAX_PRIORITIES-2, NULL);
 			vTaskSuspend(NULL);
 			break;
 		case 9:
@@ -242,11 +255,13 @@ void getTime_task(void *parameter)
 			asciiDate->year_h = ((timeBuffer[6] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
 			xQueueSend(g_time_queue, &asciiDate, portMAX_DELAY);
 			xEventGroupSetBits(getTime_eventB, EVENT_TIME_SET);
+			//xEventGroupSetBits(timeTerminal_eventB, EVENT_TIME_SET);
 		}
 		else
 		{
 			ioerror = true;
 			xEventGroupSetBits(getTime_eventB, EVENT_TIME_ERR);
+			//xEventGroupSetBits(timeTerminal_eventB, EVENT_TIME_ERR);
 		}
 		vTaskDelay(pdMS_TO_TICKS(500));
 	}
@@ -552,4 +567,120 @@ void hourFormat_task(void * params)
 			break;
 		}
 	}
+}
+
+void timeTerminal_task(void *params)
+{
+	timeTerminal_handle = xTaskGetCurrentTaskHandle();
+	ascii_time_t *asciiDate;
+
+	UART_putString(UART_0, (uint8_t*) terminalTime_Txt);
+
+	while (1)
+	{
+		xEventGroupWaitBits(timeTerminal_eventB,
+				(EVENT_TIME_SET | EVENT_TIME_ERR), pdFALSE, pdFALSE,
+				portMAX_DELAY);
+		EventBits_t event = xEventGroupGetBits(timeTerminal_eventB);
+		xEventGroupClearBits(timeTerminal_eventB,
+				EVENT_TIME_ERR | EVENT_TIME_SET);
+		if (EVENT_TIME_ERR == (event & EVENT_TIME_ERR))
+		{
+			UART_putString(UART_0, (uint8_t*) terminalTime_Txt);
+			UART_putString(UART_0,
+					(uint8_t*) "\r\n\n --Error de lectura, verificar conexion al bus de I2C--");
+		}
+		else
+		{
+			do
+			{
+				xQueueReceive(g_time_queue, &asciiDate, portMAX_DELAY);
+			} while (0 != uxQueueMessagesWaiting(g_time_queue));
+
+			UART_putString(UART_0, (uint8_t*) terminalTime_Txt);
+			UART_putString(UART_0, (uint8_t*) "\r\n\nLa hora actual es: \r\n\n"
+					"      ");
+			UART_putBytes(UART_0, &asciiDate->hours_h, 1);
+			UART_putBytes(UART_0, &asciiDate->hours_l, 1);
+			UART_putBytes(UART_0, (uint8_t*) ":", 1);
+			UART_putBytes(UART_0, &asciiDate->minutes_h, 1);
+			UART_putBytes(UART_0, &asciiDate->minutes_l, 1);
+			UART_putBytes(UART_0, (uint8_t*) ":", 1);
+			UART_putBytes(UART_0, &asciiDate->seconds_h, 1);
+			UART_putBytes(UART_0, &asciiDate->seconds_l, 1);
+			if (FORMAT_12H == asciiDate->timeformat)
+			{
+				switch (asciiDate->ampm)
+				{
+				case FORMAT_AM:
+					UART_putString(UART_0,
+							(uint8_t*) " am\r\n\n\n\nPresione cualquier tecla para salir");
+					break;
+				case FORMAT_PM:
+					UART_putString(UART_0,
+							(uint8_t*) " pm\r\n\n\n\nPresione cualquier tecla para salir");
+					break;
+				}
+			}
+			else
+			{
+				UART_putString(UART_0,
+						(uint8_t*) "\r\n\n\n\n -- Presione cualquier tecla para salir --");
+			}
+			vPortFree(asciiDate);
+//			UART_Echo(UART_0);
+//			vTaskResume(menuTask_handle);
+//			vTaskDelete(timeTerminal_handle);
+		}
+	}
+}
+
+void dateTerminal_task(void * params)
+{
+	dateTerminal_handle = xTaskGetCurrentTaskHandle();
+	ascii_time_t *asciiDate;
+
+	UART_putString(UART_0, (uint8_t*) terminalDate_Txt);
+
+	while (1)
+	{
+		xEventGroupWaitBits(timeTerminal_eventB,
+				(EVENT_TIME_SET | EVENT_TIME_ERR), pdFALSE, pdFALSE,
+				portMAX_DELAY);
+		EventBits_t event = xEventGroupGetBits(timeTerminal_eventB);
+		xEventGroupClearBits(timeTerminal_eventB,
+				EVENT_TIME_ERR | EVENT_TIME_SET);
+		if (EVENT_TIME_ERR == (event & EVENT_TIME_ERR))
+		{
+			UART_putString(UART_0, (uint8_t*) terminalDate_Txt);
+			UART_putString(UART_0,
+					(uint8_t*) "\r\n\n --Error de lectura, verificar conexion al bus de I2C--");
+		}
+		else
+		{
+			do
+			{
+				xQueueReceive(g_time_queue, &asciiDate, portMAX_DELAY);
+			} while (0 != uxQueueMessagesWaiting(g_time_queue));
+
+			UART_putString(UART_0, (uint8_t*) terminalDate_Txt);
+			UART_putString(UART_0, (uint8_t*) "\r\n\nLa fecha de hoy es: \r\n\n"
+					"      ");
+			UART_putBytes(UART_0, &asciiDate->day_h, 1);
+			UART_putBytes(UART_0, &asciiDate->day_l, 1);
+			UART_putBytes(UART_0, (uint8_t*) "-", 1);
+			UART_putBytes(UART_0, &asciiDate->month_h, 1);
+			UART_putBytes(UART_0, &asciiDate->month_l, 1);
+			UART_putString(UART_0, (uint8_t*) "-20");
+			UART_putBytes(UART_0, &asciiDate->year_h, 1);
+			UART_putBytes(UART_0, &asciiDate->year_l, 1);
+			UART_putString(UART_0,
+					(uint8_t*) "\r\n\n\n\n -- Presione cualquier tecla para salir --");
+			vPortFree(asciiDate);
+			UART_Echo(UART_0);
+			vTaskResume(menuTask_handle);
+			vTaskDelete(dateTerminal_handle);
+		}
+	}
+
 }

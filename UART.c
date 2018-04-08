@@ -14,10 +14,12 @@ uint8_t uart3_background_buffer[32];
 uint8_t uart0_inBuffer[1];
 uint8_t uart3_inBuffer[1];
 
-uart_rtos_handle_t uart0_handler;
-struct _uart_handle t_handle;
+EventGroupHandle_t uart0_interrupt_event;
 
+uart_rtos_handle_t uart0_handler;
 uart_rtos_handle_t uart3_handler;
+
+struct _uart_handle t_handle;
 struct _uart_handle t_handle_b;
 
 uart_rtos_config_t uart_config =
@@ -32,11 +34,14 @@ uart_rtos_config_t uart_config_b =
 
 void uart_init(void)
 {
+    UART_EnableInterrupts(UART0, kUART_RxDataRegFullInterruptEnable | kUART_RxOverrunInterruptEnable);
+    EnableIRQ(UART0_RX_TX_IRQn);
 	NVIC_SetPriority(UART0_RX_TX_IRQn, 5);
 	uart_config.srcclk = CLOCK_GetFreq(UART0_CLK_SRC);
 	UART_RTOS_Init(&uart0_handler, &t_handle, &uart_config);
 	uart_config_b.srcclk = CLOCK_GetFreq(UART3_CLK_SRC);
 	UART_RTOS_Init(&uart3_handler, &t_handle_b, &uart_config_b);
+	uart0_interrupt_event = xEventGroupCreate();
 }
 
 void UART_putBytes(UART_Module module, uint8_t *data, size_t numBytes){
@@ -97,3 +102,8 @@ uint8_t UART_Echo(UART_Module module){
 	else
 		return 1; //Warning avoidance
 }
+
+//void UART0_RX_TX_DriverIRQHandler(){
+//	xEventGroupSetBits(uart0_interrupt_event, UART0_INTERRUPT_EVENT);
+//}
+

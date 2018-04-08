@@ -94,6 +94,8 @@ void memread_task(void *parameters);
 void setTime_task(void * params);
 void setDate_task(void * params);
 void hourFormat_task(void * params);
+void timeTerminal_task(void *params);
+void dateTerminal_task(void * params);
 
 
 /*Constant menus definitions*/
@@ -150,6 +152,20 @@ static const uint8_t hourFormat_Txt[] =
 		"\033[2;2H\r"
 		"------------------------------\r\n"
 		"| Cambiar el formato de hora |\r\n"
+		"------------------------------\r\n\n";
+
+static const uint8_t terminalTime_Txt[] =
+		"\033[2J"
+		"\033[2;2H\r"
+		"------------------------------\r\n"
+		"|         Hora Actual        |\r\n"
+		"------------------------------\r\n\n";
+
+static const uint8_t terminalDate_Txt[] =
+		"\033[2J"
+		"\033[2;2H\r"
+		"------------------------------\r\n"
+		"|            Fecha           |\r\n"
 		"------------------------------\r\n\n";
 
 
