@@ -38,10 +38,18 @@
 #define BCD_L 0x0F				//Mask used to make a bitwise operation with the low part of the BCD data
 #define SECONDS_REG_SIZE 0x7F	//Used to set reading boundaries according to the seconds register size
 #define MINUTES_REG_SIZE 0x7F	//Used to set reading boundaries according to the minutes register size
-#define HOURS_REG_SIZE 0x1F		//Used to set reading boundaries according to the hours register size
+#define HOURS_REG_SIZE 0x3F		//Used to set reading boundaries according to the hours register size
 #define DAY_REG_SIZE 0x2F		//Used to set reading boundaries according to the days register size
 #define MONTH_REG_SIZE 0x1F		//Used to set reading boundaries according to the month register size
 #define YEAR_REG_SIZE 0xFF		//Used to set reading boundaries according to the year register size
+#define TIME_FORMAT_SIZE 0x40
+
+typedef enum{
+	FORMAT_24H = 0x00,
+	FORMAT_12H = 0x01,
+	FORMAT_AM = 0x00,
+	FORMAT_PM = 0x01
+}HourFormat_t;
 
 typedef enum{
 	OSCILLATOR_OFF = 0x00,
@@ -70,6 +78,8 @@ typedef struct
 	uint8_t month_h;
 	uint8_t year_l;
 	uint8_t year_h;
+	uint8_t timeformat;
+	uint8_t ampm;
 }ascii_time_t;
 
 uint16_t asciiToHex(uint8_t *string);
@@ -83,6 +93,7 @@ void osNotDeadLED(void * params);
 void memread_task(void *parameters);
 void setTime_task(void * params);
 void setDate_task(void * params);
+void hourFormat_task(void * params);
 
 
 /*Constant menus definitions*/
@@ -133,6 +144,13 @@ static const uint8_t setDate_Txt[] =
 		"----------------------------\r\n"
 		"|     Actualizar Fecha     |\r\n"
 		"----------------------------\r\n\n";
+
+static const uint8_t hourFormat_Txt[] =
+		"\033[2J"
+		"\033[2;2H\r"
+		"------------------------------\r\n"
+		"| Cambiar el formato de hora |\r\n"
+		"------------------------------\r\n\n";
 
 
 #endif /* USERTASK_H_ */
