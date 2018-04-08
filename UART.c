@@ -34,9 +34,8 @@ uart_rtos_config_t uart_config_b =
 
 void uart_init(void)
 {
-    UART_EnableInterrupts(UART0, kUART_RxDataRegFullInterruptEnable | kUART_RxOverrunInterruptEnable);
-    EnableIRQ(UART0_RX_TX_IRQn);
 	NVIC_SetPriority(UART0_RX_TX_IRQn, 5);
+	NVIC_SetPriority(UART3_RX_TX_IRQn, 5);
 	uart_config.srcclk = CLOCK_GetFreq(UART0_CLK_SRC);
 	UART_RTOS_Init(&uart0_handler, &t_handle, &uart_config);
 	uart_config_b.srcclk = CLOCK_GetFreq(UART3_CLK_SRC);
@@ -102,8 +101,4 @@ uint8_t UART_Echo(UART_Module module){
 	else
 		return 1; //Warning avoidance
 }
-
-//void UART0_RX_TX_DriverIRQHandler(){
-//	xEventGroupSetBits(uart0_interrupt_event, UART0_INTERRUPT_EVENT);
-//}
 
