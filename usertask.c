@@ -63,7 +63,6 @@ void os_init()
 	i2cbus_mutex = xSemaphoreCreateMutex();
 	getTime_eventB = xEventGroupCreate();
 	timeTerminal_eventB = xEventGroupCreate();
-
 	g_time_queue = xQueueCreate(1, sizeof(ascii_time_t*));
 }
 
@@ -262,13 +261,13 @@ void getTime_task(void *parameter)
 			asciiDate->year_h = ((timeBuffer[6] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
 			xQueueSend(g_time_queue, &asciiDate, portMAX_DELAY);
 			xEventGroupSetBits(getTime_eventB, EVENT_TIME_SET);
-			//xEventGroupSetBits(timeTerminal_eventB, EVENT_TIME_SET);
+			xEventGroupSetBits(timeTerminal_eventB, EVENT_TIME_SET);
 		}
 		else
 		{
 			ioerror = true;
 			xEventGroupSetBits(getTime_eventB, EVENT_TIME_ERR);
-			//xEventGroupSetBits(timeTerminal_eventB, EVENT_TIME_ERR);
+			xEventGroupSetBits(timeTerminal_eventB, EVENT_TIME_ERR);
 		}
 		vTaskDelay(pdMS_TO_TICKS(500));
 	}
@@ -653,9 +652,9 @@ void timeTerminal_task(void *params)
 						(uint8_t*) "\r\n\n\n\n -- Presione cualquier tecla para salir --");
 			}
 			vPortFree(asciiDate);
-//			UART_Echo(UART_0);
-//			vTaskResume(menuTask_handle);
-//			vTaskDelete(timeTerminal_handle);
+			UART_Echo(UART_0);
+			vTaskResume(menuTask_handle);
+			vTaskDelete(timeTerminal_handle);
 		}
 	}
 }
