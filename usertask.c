@@ -10,22 +10,54 @@
 TaskHandle_t menuTask_handle;
 TaskHandle_t timedateLCD_handle;
 TaskHandle_t getTime_handle;
+TaskHandle_t setTime_handle;
+TaskHandle_t setDate_handle;
 TaskHandle_t echoTask_handle;
 
-SemaphoreHandle_t i2cbus_mutex;
 SemaphoreHandle_t spibus_mutex;
+SemaphoreHandle_t i2cbus_mutex;
 
 EventGroupHandle_t getTime_eventB;
 
 QueueHandle_t g_time_queue;
 
+uint16_t asciiToHex(uint8_t *string)
+{
+	volatile uint16_t hexAddress;
+	hexAddress = 0x0000;
+	while (*string)
+	{
+		hexAddress = hexAddress << 4;
+		if (*string >= 'A' && *string <= 'F')
+		{
+			hexAddress |= *string - ASCII_LETTER_MASK;
+			*string++;
+		}
+		else
+		{
+			hexAddress |= *string - ASCII_NUMBER_MASK;
+			*string++;
+		}
+	}
+	return hexAddress;
+}
+
+uint8_t asciitoDec(uint8_t *string)
+{
+	uint8_t decNum = 0;
+	while(*string)
+	{
+		decNum = decNum*10 + (*string - ASCII_NUMBER_MASK);
+		*string++;
+	}
+	return decNum;
+}
+
 void os_init()
 {
-	i2cbus_mutex = xSemaphoreCreateMutex();
 	spibus_mutex = xSemaphoreCreateMutex();
-
+	i2cbus_mutex = xSemaphoreCreateMutex();
 	getTime_eventB = xEventGroupCreate();
-
 	g_time_queue = xQueueCreate(1, sizeof(ascii_time_t*));
 }
 
@@ -40,10 +72,22 @@ void menu0_Task(void *parameter)
 		recvBuffer = UART_Echo(UART_0);
 		switch (recvBuffer - ASCII_NUMBER_MASK)
 		{
+		case 1:
+			xTaskCreate(memread_task, "memread_task", configMINIMAL_STACK_SIZE, NULL, configMAX_PRIORITIES-2, NULL);
+			vTaskSuspend(NULL);
+			break;
+		case 3:
+			xTaskCreate(setTime_task, "setTime_task", configMINIMAL_STACK_SIZE, NULL, configMAX_PRIORITIES-2, NULL);
+			vTaskSuspend(NULL);
+			break;
+		case 4:
+			xTaskCreate(setDate_task, "setDate_task", configMINIMAL_STACK_SIZE, NULL, configMAX_PRIORITIES-2, NULL);
+			vTaskSuspend(NULL);
+			break;
 		case 9:
 			vTaskSuspend(getTime_handle);
 			vTaskSuspend(timedateLCD_handle);
-			xTaskCreate(echo_Task, "echo0_task", configMINIMAL_STACK_SIZE, NULL,
+			xTaskCreate(echo_Task, "echo_task", configMINIMAL_STACK_SIZE, NULL,
 					configMAX_PRIORITIES - 2, NULL);
 			vTaskSuspend(NULL);
 			break;
@@ -155,7 +199,6 @@ void osNotDeadLED(void * params)
 		vTaskDelay(pdMS_TO_TICKS(3000));
 	}
 }
-
 
 void timedateLCD_task(void* parameters)
 {
@@ -277,11 +320,7 @@ void echo_Task(void *parameter)
 	uint8_t recvBuffer;
 	uint8_t maxChar = 0;
 
-	UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[2J", sizeof("\033[2J"));
-	UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[1;1H", sizeof("\033[1;1H"));
-	UART_RTOS_Send(getHandleUART0(), (uint8_t *)"Escribir texto: ",
-			sizeof("Escribir texto: "));
-	UART_RTOS_Send(getHandleUART0(), (uint8_t *)"\033[2;1H", sizeof("\033[2;1H"));
+	UART_putString(UART_0, (uint8_t*)echo_menuTxt);
 
 	xSemaphoreTake(spibus_mutex, portMAX_DELAY);
 	LCDNokia_clear();
@@ -312,6 +351,135 @@ void echo_Task(void *parameter)
 			LCDNokia_clear();
 			xSemaphoreGive(spibus_mutex);
 			maxChar = 0;
+		}
+	}
+}
+
+void memread_task(void *parameters){
+
+	uint16_t subaddress = 0;
+	uint16_t readlen = 0;
+	uint8_t charAddress[5];
+	uint8_t charlen[3];
+	uint8_t charCounter = 0;
+	static uint8_t *recvBuff;
+
+	UART_putString(UART_0, (uint8_t*)memread_Txt);
+
+	while(1){
+
+		UART_putString(UART_0, (uint8_t*)"\r\nIngrese la direccion de memoria inicial: 0x");
+		while(4 > charCounter)
+		{
+			charAddress[charCounter] = UART_Echo(UART_0);
+			charCounter++;
+		}
+		charCounter = 0;
+		subaddress = asciiToHex(charAddress);
+		UART_putString(UART_0, (uint8_t*)"\r\nIngrese la cantidad de bytes a leer: ");
+		while(2 > charCounter)
+		{
+			charlen[charCounter] = UART_Echo(UART_0);
+			charCounter++;
+		}
+		charCounter = 0;
+		readlen = asciitoDec(charlen);
+
+		if(kStatus_Fail == I2C_MEMRead(I2C0, MEM_DEVICE_ADD, subaddress, recvBuff, readlen))
+		{
+			UART_putString(UART_0, (uint8_t*) "ERROR READING MEMORY");
+		}
+		else
+		{
+			UART_putBytes(UART_0, recvBuff, readlen);
+		}
+		//TODO: FInish task
+	}
+}
+
+void setTime_task(void * params)
+{
+	setTime_handle = xTaskGetCurrentTaskHandle();
+	uint8_t charCounter = 0;
+	uint8_t newTime[5];
+
+	UART_putString(UART_0, (uint8_t*)setTime_Txt);
+
+	while(1)
+	{
+		UART_putString(UART_0, (uint8_t*)"\r\nIntroduzca la hora en formato HH:MM --> ");
+		while(4 > charCounter)
+		{
+			newTime[charCounter] = UART_Echo(UART_0);
+			charCounter++;
+		}
+		charCounter = 0;
+		UART_putString(UART_0, (uint8_t*)"\r\nLa hora introducida es ");
+		UART_putBytes(UART_0, &newTime[0], 1);
+		UART_putBytes(UART_0, &newTime[1], 1);
+		UART_putBytes(UART_0, (uint8_t*)":", 1);
+		UART_putBytes(UART_0, &newTime[2], 1);
+		UART_putBytes(UART_0, &newTime[3], 1);
+		UART_putString(UART_0, (uint8_t*)"\r\nPresiona cualquier tecla para confirmar o ESC para cancelar...");
+		if(ESC_KEY == UART_Echo(UART_0))
+		{
+			vTaskResume(menuTask_handle);
+			vTaskDelete(setTime_handle);
+		}
+		else
+		{
+			I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCSEC, OSCILLATOR_OFF);
+			I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCHOUR, (newTime[0]-ASCII_NUMBER_MASK)<<4 | (newTime[1]-ASCII_NUMBER_MASK));
+			I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCMIN, (newTime[2]-ASCII_NUMBER_MASK)<<4 | (newTime[3]-ASCII_NUMBER_MASK));
+			I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCSEC, OSCILLATOR_ON);
+			vTaskResume(menuTask_handle);
+			vTaskDelete(setTime_handle);
+		}
+	}
+
+}
+
+void setDate_task(void * params)
+{
+	setDate_handle = xTaskGetCurrentTaskHandle();
+	uint8_t charCounter = 0;
+	uint8_t newDate[7];
+
+	UART_putString(UART_0, (uint8_t*)setDate_Txt);
+
+	while(1)
+	{
+		UART_putString(UART_0, (uint8_t*)"\r\nIntroduzca la fecha en formato DD/MM/AA --> ");
+		while(6 > charCounter)
+		{
+			newDate[charCounter] = UART_Echo(UART_0);
+			charCounter++;
+		}
+		charCounter = 0;
+		UART_putString(UART_0, (uint8_t*)"\r\nLa fecha introducida es ");
+		UART_putBytes(UART_0, &newDate[0], 1);
+		UART_putBytes(UART_0, &newDate[1], 1);
+		UART_putBytes(UART_0, (uint8_t*)"-", 1);
+		UART_putBytes(UART_0, &newDate[2], 1);
+		UART_putBytes(UART_0, &newDate[3], 1);
+		UART_putBytes(UART_0, (uint8_t*)"-20", 1);
+		UART_putBytes(UART_0, &newDate[4], 1);
+		UART_putBytes(UART_0, &newDate[5], 1);
+		UART_putString(UART_0, (uint8_t*)"\r\nPresiona cualquier tecla para confirmar o ESC para cancelar...");
+		if(ESC_KEY == UART_Echo(UART_0))
+		{
+			vTaskResume(menuTask_handle);
+			vTaskDelete(setDate_handle);
+		}
+		else
+		{
+			I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCSEC, OSCILLATOR_OFF);
+			I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCDATE, (newDate[0]-ASCII_NUMBER_MASK)<<4 | (newDate[1]-ASCII_NUMBER_MASK));
+			I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCMTH, (newDate[2]-ASCII_NUMBER_MASK)<<4 | (newDate[3]-ASCII_NUMBER_MASK));
+			I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCYEAR, (newDate[4]-ASCII_NUMBER_MASK)<<4 | (newDate[5]-ASCII_NUMBER_MASK));
+			I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCSEC, OSCILLATOR_ON);
+			vTaskResume(menuTask_handle);
+			vTaskDelete(setDate_handle);
 		}
 	}
 }
