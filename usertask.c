@@ -194,7 +194,9 @@ void getTime_task(void *parameter)
 	bool ioerror = false;
 
 	/*Start Timer*/
-	I2C_Write(I2C0, RTC_DEVICE_ADD, 0x00, 0x80);
+	xSemaphoreTake(i2cbus_mutex,portMAX_DELAY);
+	I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCSEC, OSCILLATOR_ON);
+	xSemaphoreGive(i2cbus_mutex);
 
 	while (1)
 	{
@@ -202,10 +204,15 @@ void getTime_task(void *parameter)
 		if (ioerror)
 		{
 			ioerror = false;
-			I2C_Write(I2C0, RTC_DEVICE_ADD, 0x00, 0x80);
+			xSemaphoreTake(i2cbus_mutex,portMAX_DELAY);
+			I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCSEC, OSCILLATOR_ON);
+			xSemaphoreGive(i2cbus_mutex);
 		}
 
-		i2c_transfer = I2C_Read(I2C0, RTC_DEVICE_ADD, 0x00, timeBuffer, 7);
+		xSemaphoreTake(i2cbus_mutex,portMAX_DELAY);
+		i2c_transfer = I2C_Read(I2C0, RTC_DEVICE_ADD, REG_RTCSEC, timeBuffer, 7);
+		xSemaphoreGive(i2cbus_mutex);
+
 
 		if(kStatus_Success == i2c_transfer)
 		{
@@ -323,6 +330,7 @@ void memread_task(void *parameters){
 		charCounter = 0;
 		readlen = asciitoDec(charlen);
 
+		xSemaphoreTake(i2cbus_mutex, portMAX_DELAY);
 		if(kStatus_Fail == I2C_MEMRead(I2C0, MEM_DEVICE_ADD, subaddress, recvBuff, readlen))
 		{
 			UART_putString(UART_0, (uint8_t*) "ERROR READING MEMORY");
@@ -331,6 +339,8 @@ void memread_task(void *parameters){
 		{
 			UART_putBytes(UART_0, recvBuff, readlen);
 		}
+		xSemaphoreGive(i2cbus_mutex);
+
 		//TODO: FInish task
 	}
 }
@@ -403,27 +413,36 @@ void setTime_task(void * params)
 		}
 		else
 		{
+			xSemaphoreTake(i2cbus_mutex, portMAX_DELAY);
 			I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCSEC, OSCILLATOR_OFF);
+			xSemaphoreGive(i2cbus_mutex);
 			if (FORMAT_12H == asciiDate->timeformat)
 			{
 				switch (timeFormat)
 				{
 				case FORMAT_PM:
+					xSemaphoreTake(i2cbus_mutex, portMAX_DELAY);
 					I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCHOUR,
 							((FORMAT_PM<<5) | (newTime[0]-ASCII_NUMBER_MASK)<<4 | (newTime[1]-ASCII_NUMBER_MASK) | (asciiDate->timeformat<<6)));
+					xSemaphoreGive(i2cbus_mutex);
 					break;
 				case FORMAT_AM:
+					xSemaphoreTake(i2cbus_mutex, portMAX_DELAY);
 					I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCHOUR,
 							((FORMAT_AM<<5)  | (newTime[0]-ASCII_NUMBER_MASK)<<4 | (newTime[1]-ASCII_NUMBER_MASK) | (asciiDate->timeformat<<6)));
+					xSemaphoreGive(i2cbus_mutex);
 					break;
 				}
 			}
 			else
-			{
+			{	xSemaphoreTake(i2cbus_mutex, portMAX_DELAY);
 				I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCHOUR, (newTime[0]-ASCII_NUMBER_MASK)<<4 | (newTime[1]-ASCII_NUMBER_MASK));
+				xSemaphoreGive(i2cbus_mutex);
 			}
+			xSemaphoreTake(i2cbus_mutex, portMAX_DELAY);
 			I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCMIN, (newTime[2]-ASCII_NUMBER_MASK)<<4 | (newTime[3]-ASCII_NUMBER_MASK));
 			I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCSEC, OSCILLATOR_ON);
+			xSemaphoreGive(i2cbus_mutex);
 			vTaskResume(menuTask_handle);
 			vTaskDelete(setTime_handle);
 		}
@@ -470,11 +489,13 @@ void setDate_task(void * params)
 		}
 		else
 		{
+			xSemaphoreTake(i2cbus_mutex, portMAX_DELAY);
 			I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCSEC, OSCILLATOR_OFF);
 			I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCDATE, (newDate[0]-ASCII_NUMBER_MASK)<<4 | (newDate[1]-ASCII_NUMBER_MASK));
 			I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCMTH, (newDate[2]-ASCII_NUMBER_MASK)<<4 | (newDate[3]-ASCII_NUMBER_MASK));
 			I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCYEAR, (newDate[4]-ASCII_NUMBER_MASK)<<4 | (newDate[5]-ASCII_NUMBER_MASK));
 			I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCSEC, OSCILLATOR_ON);
+			xSemaphoreGive(i2cbus_mutex);
 			vTaskResume(menuTask_handle);
 			vTaskDelete(setDate_handle);
 		}
@@ -503,12 +524,14 @@ void hourFormat_task(void * params)
 					(uint8_t*) "* 24 Horas *\r\n\nDeseas cambiarlo a 12 Horas? (y/n)");
 			if ('y' == UART_Echo(UART_0))
 			{
+				xSemaphoreTake(i2cbus_mutex, portMAX_DELAY);
 				I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCSEC, OSCILLATOR_OFF);
 				I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCHOUR,
 						((FORMAT_12H << 6)
 								| (asciiDate->hours_h - ASCII_NUMBER_MASK) << 4
 								| (asciiDate->hours_l - ASCII_NUMBER_MASK)));
 				I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCSEC, OSCILLATOR_ON);
+				xSemaphoreGive(i2cbus_mutex);
 				UART_putString(UART_0,
 						(uint8_t*) "\r\n\nEl formato ha sido cambiado, presiona una tecla para salir...");
 				UART_Echo(UART_0);
@@ -529,12 +552,14 @@ void hourFormat_task(void * params)
 					(uint8_t*) "* 12 Horas *\r\n\nDeseas cambiarlo a 24 Horas? (y/n)");
 			if ('y' == UART_Echo(UART_0))
 			{
+				xSemaphoreTake(i2cbus_mutex, portMAX_DELAY);
 				I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCSEC, OSCILLATOR_OFF);
 				I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCHOUR,
 						((FORMAT_24H << 6)
 								| (asciiDate->hours_h - ASCII_NUMBER_MASK) << 4
 								| (asciiDate->hours_l - ASCII_NUMBER_MASK)));
 				I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCSEC, OSCILLATOR_ON);
+				xSemaphoreGive(i2cbus_mutex);
 				UART_putString(UART_0,
 						(uint8_t*) "\r\n\nEl formato ha sido cambiado, presiona una tecla para salir...");
 				UART_Echo(UART_0);
