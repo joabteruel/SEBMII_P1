@@ -59,9 +59,12 @@ typedef enum{
 /*Event Bits*/
 #define EVENT_TIME_SET (1<<0)
 #define EVENT_TIME_ERR (1<<1)
+#define MAIL_UART0 (1<<4)
+#define MAIL_UART3 (1<<5)
 
 /*ASCII Symbols*/
 #define ESC_KEY 0x1B //27
+#define ENTER_KEY 0xD
 
 /*Typo definitions*/
 typedef struct
@@ -82,6 +85,12 @@ typedef struct
 	uint8_t ampm;
 }ascii_time_t;
 
+typedef struct
+{
+	uint8_t dataLen;
+	uint8_t dataBuff[30];
+}chatBuffer_t;
+
 uint16_t asciiToHex(uint8_t *string);
 uint8_t asciitoDec(uint8_t *string);
 void os_init();
@@ -98,6 +107,7 @@ void setDate_task(void * uart_module);
 void hourFormat_task(void * uart_module);
 void timeTerminal_task(void * uart_module);
 void dateTerminal_task(void * uart_module);
+void chat_task(void * uart_module);
 
 
 /*Constant menus definitions*/
@@ -169,6 +179,17 @@ static const uint8_t terminalDate_Txt[] =
 		"------------------------------\r\n"
 		"|            Fecha           |\r\n"
 		"------------------------------\r\n\n";
+
+static const uint8_t chat_Txt[] =
+		"\033[2J"
+		"\033[2;2H\r"
+		"------------------------------\r\n"
+		"|            Chat            |\r\n"
+		"|      T1 < ------- > T2     |\r\n"
+		"------------------------------\r\n\n"
+		" -- Mensajes --"
+		"\033[s"
+		"\033[20;2H\rTu mensaje\r\n-------------------------------------";
 
 static const uint8_t errorMes_Txt[] =
 		"\033[2J"

@@ -21,12 +21,61 @@ TaskHandle_t chatTask_handle;
 
 SemaphoreHandle_t spibus_mutex;
 SemaphoreHandle_t i2cbus_mutex;
+SemaphoreHandle_t uart_mutex;
 
 EventGroupHandle_t getTime_eventB;
 EventGroupHandle_t timeTerminal_eventB;
-extern EventGroupHandle_t uart_interrupt_event;
+EventGroupHandle_t chatNotifications_eventB;
+EventGroupHandle_t uart_interrupt_event;
 
 QueueHandle_t g_time_queue;
+QueueHandle_t g_uart0_queue;
+QueueHandle_t g_uart3_queue;
+
+uint8_t uart0_irqData;
+uint8_t uart3_irqData;
+
+void UART0_IRQHandler(void)
+{
+	if(UART0_IRQ_ENABLE == (UART0_IRQ_ENABLE & xEventGroupGetBitsFromISR(uart_interrupt_event)))
+		/* If new data arrived. */
+		if ((kUART_RxDataRegFullFlag | kUART_RxOverrunFlag)	& UART_GetStatusFlags(UART0))
+		{
+			xSemaphoreTakeFromISR(uart_mutex,pdFALSE);
+			uart0_irqData = UART_ReadByte(UART0);
+			xSemaphoreGiveFromISR(uart_mutex,pdFALSE);
+			xEventGroupSetBitsFromISR(uart_interrupt_event, UART0_RX_INTERRUPT_EVENT, pdFALSE);
+			portYIELD_FROM_ISR(pdFALSE);
+		}
+	UART0_DriverIRQHandler();
+
+    /* Add for ARM errata 838869, affects Cortex-M4, Cortex-M4F Store immediate overlapping
+      exception return operation might vector to incorrect interrupt */
+#if defined __CORTEX_M && (__CORTEX_M == 4U)
+    __DSB();
+#endif
+}
+
+void UART3_IRQHandler(void)
+{
+	if(UART3_IRQ_ENABLE == (UART3_IRQ_ENABLE & xEventGroupGetBitsFromISR(uart_interrupt_event)))
+		/* If new data arrived. */
+		if ((kUART_RxDataRegFullFlag | kUART_RxOverrunFlag)	& UART_GetStatusFlags(UART3))
+		{
+			xSemaphoreTakeFromISR(uart_mutex,pdFALSE);
+			uart3_irqData = UART_ReadByte(UART3);
+			xSemaphoreGiveFromISR(uart_mutex,pdFALSE);
+			xEventGroupSetBitsFromISR(uart_interrupt_event, UART3_RX_INTERRUPT_EVENT, pdFALSE);
+			portYIELD_FROM_ISR(pdFALSE);
+		}
+	UART3_DriverIRQHandler();
+
+    /* Add for ARM errata 838869, affects Cortex-M4, Cortex-M4F Store immediate overlapping
+      exception return operation might vector to incorrect interrupt */
+#if defined __CORTEX_M && (__CORTEX_M == 4U)
+    __DSB();
+#endif
+}
 
 uint16_t asciiToHex(uint8_t *string)
 {
@@ -64,9 +113,17 @@ void os_init()
 {
 	spibus_mutex = xSemaphoreCreateMutex();
 	i2cbus_mutex = xSemaphoreCreateMutex();
+	uart_mutex = xSemaphoreCreateMutex();
 	getTime_eventB = xEventGroupCreate();
 	timeTerminal_eventB = xEventGroupCreate();
+	chatNotifications_eventB = xEventGroupCreate();
+
+	uart_interrupt_event = xEventGroupCreate();
+
 	g_time_queue = xQueueCreate(1, sizeof(ascii_time_t*));
+	g_uart0_queue = xQueueCreate(30, sizeof(uint8_t));
+	g_uart3_queue = xQueueCreate(30, sizeof(uint8_t));
+
 }
 
 void menu0_Task(void *parameter)
@@ -152,8 +209,19 @@ void menu0_Task(void *parameter)
 				vTaskSuspend(NULL);
 			}
 			break;
+		case 8:
+//			if(NULL != xTaskGetHandle("chat_task"))
+//			{
+//				UART_putString(UART_0, (uint8_t*) errorMes_Txt);
+//				vTaskDelay(pdMS_TO_TICKS(3000));
+//			}
+//			else
+//			{
+				xTaskCreate(chat_task, "chat_task", 300, (void*)UART_0, configMAX_PRIORITIES-2, NULL);
+				vTaskSuspend(NULL);
+//			}
+			break;
 		case 9:
-			vTaskSuspend(getTime_handle);
 			vTaskSuspend(timedateLCD_handle);
 			if(NULL != xTaskGetHandle("echo_task"))
 			{
@@ -260,8 +328,11 @@ void menu3_Task(void *parameter)
 			vTaskSuspend(NULL);
 			}
 			break;
+		case 8:
+			xTaskCreate(chat_task, "chat2_task", 300, (void*)UART_3, configMAX_PRIORITIES-2, NULL);
+			vTaskSuspend(NULL);
+			break;
 		case 9:
-			vTaskSuspend(getTime_handle);
 			vTaskSuspend(timedateLCD_handle);
 			if(NULL != xTaskGetHandle("echo_task"))
 			{
@@ -462,7 +533,6 @@ void echo_Task(void * uart_module)
 			LCDNokia_clear();
 			xSemaphoreGive(spibus_mutex);
 			vTaskResume(timedateLCD_handle);
-			vTaskResume(getTime_handle);
 			switch((UART_Module)uart_module)
 			{
 			case UART_0:
@@ -1011,7 +1081,130 @@ void dateTerminal_task(void * uart_module)
 
 void chat_task(void * uart_module)
 {
-	chatTask_handle = xTaskGetCurrentTaskHandle();
+	//chatTask_handle = xTaskGetCurrentTaskHandle();
+	chatBuffer_t *chatTxBuffer;
+	chatBuffer_t *chatRxBuffer;
+	uint8_t txCounter = 0;
+	EventBits_t event, uart_event;
 
+	UART_putString((UART_Module) uart_module, (uint8_t*)chat_Txt);
 
+	chatTxBuffer = pvPortMalloc(sizeof(chatBuffer_t));
+
+	switch((UART_Module)uart_module)
+	{
+	case UART_0:
+		xEventGroupSetBits(uart_interrupt_event, UART0_IRQ_ENABLE);
+		break;
+	case UART_3:
+		xEventGroupSetBits(uart_interrupt_event, UART3_IRQ_ENABLE);
+		break;
+	}
+
+	while(1)
+	{
+		switch((UART_Module) uart_module)
+		{
+		case UART_0:
+			;
+			uart_event = xEventGroupWaitBits(uart_interrupt_event, UART0_RX_INTERRUPT_EVENT | MAIL_UART3, pdTRUE, pdFALSE, portMAX_DELAY);
+			if(MAIL_UART3 == (MAIL_UART3 & uart_event))
+			{
+				chatRxBuffer = pvPortMalloc(sizeof(chatBuffer_t));
+				do
+				{
+				xQueueReceive(g_uart3_queue,&chatRxBuffer,portMAX_DELAY);
+				}while(0 != uxQueueMessagesWaiting(g_uart3_queue));
+				UART_putString((UART_Module) uart_module, (uint8_t*)"\033[u\r\nTerminal 2 dice->  ");
+				UART_putBytes((UART_Module) uart_module, (uint8_t*)chatRxBuffer->dataBuff, chatRxBuffer->dataLen);
+				UART_putString((UART_Module) uart_module, (uint8_t*)"\033[s");
+				//vPortFree(chatRxBuffer);
+				//vPortFree(chatTxBuffer);
+			}
+			else
+			{
+				if(UART0_RX_INTERRUPT_EVENT == (UART0_RX_INTERRUPT_EVENT & uart_event))
+				{
+					if(0 == txCounter)
+					{
+						UART_putString((UART_Module) uart_module, (uint8_t*)"\033[22;2H");
+					}
+					UART_putBytes((UART_Module) uart_module, &uart0_irqData, 1);
+					chatTxBuffer->dataBuff[txCounter] = uart0_irqData;
+					chatTxBuffer->dataLen = txCounter;
+					if(ESC_KEY == chatTxBuffer->dataBuff[txCounter])
+					{
+						txCounter = 0;
+						xEventGroupClearBits(uart_interrupt_event, UART0_IRQ_ENABLE);
+						xQueueReset(g_uart0_queue);
+						vTaskResume(menu0Task_handle);
+						vTaskDelete(NULL);
+					}
+					if(ENTER_KEY == chatTxBuffer->dataBuff[txCounter])
+					{
+						txCounter = 0;
+						xQueueSend(g_uart0_queue, &chatTxBuffer, portMAX_DELAY);
+						UART_putString((UART_Module) uart_module, (uint8_t*)"\033[u\r\nTu dices: ");
+						UART_putBytes((UART_Module) uart_module, (uint8_t*)chatTxBuffer->dataBuff, chatTxBuffer->dataLen);
+						UART_putString((UART_Module) uart_module, (uint8_t*)"\033[s\033[22;2H\033[2K\033[J");
+						xEventGroupSetBits(uart_interrupt_event, MAIL_UART0);
+						break;
+					}
+					txCounter++;
+				}
+			}
+		break;
+
+		case UART_3:
+			;
+			uart_event = xEventGroupWaitBits(uart_interrupt_event, UART3_RX_INTERRUPT_EVENT | MAIL_UART0, pdTRUE, pdFALSE, portMAX_DELAY);
+			if(MAIL_UART0 == (MAIL_UART0 & uart_event))
+			{
+				chatRxBuffer = pvPortMalloc(sizeof(chatBuffer_t));
+				do
+				{
+					xQueueReceive(g_uart0_queue,&chatRxBuffer,portMAX_DELAY);
+				}while(0 != uxQueueMessagesWaiting(g_uart0_queue));
+				UART_putString((UART_Module) uart_module, (uint8_t*)"\033[u\r\nTerminal 1 dice->  ");
+				UART_putBytes((UART_Module) uart_module, (uint8_t*)chatRxBuffer->dataBuff, chatRxBuffer->dataLen);
+				UART_putString((UART_Module) uart_module, (uint8_t*)"\033[s");
+				//vPortFree(chatRxBuffer);
+				//vPortFree(chatTxBuffer);
+			}
+			else
+			{
+				if(UART3_RX_INTERRUPT_EVENT == (UART3_RX_INTERRUPT_EVENT & uart_event))
+				{
+					if(0 == txCounter)
+					{
+						UART_putString((UART_Module) uart_module, (uint8_t*)"\033[22;2H");
+					}
+					UART_putBytes((UART_Module) uart_module, &uart3_irqData, 1);
+
+					chatTxBuffer->dataBuff[txCounter] = uart3_irqData;
+					chatTxBuffer->dataLen = txCounter;
+					xQueueSend(g_uart3_queue, &chatTxBuffer, portMAX_DELAY);
+					if(ESC_KEY == chatTxBuffer->dataBuff[txCounter])
+					{
+						txCounter = 0;
+						xQueueReset(g_uart3_queue);
+						xEventGroupClearBits(uart_interrupt_event, UART3_IRQ_ENABLE);
+						vTaskResume(menu3Task_handle);
+						vTaskDelete(NULL);
+					}
+					if(ENTER_KEY == chatTxBuffer->dataBuff[txCounter])
+					{
+						txCounter = 0;
+						UART_putString((UART_Module) uart_module, (uint8_t*)"\033[u\r\nTu dices: ");
+						UART_putBytes((UART_Module) uart_module, (uint8_t*)chatTxBuffer->dataBuff, chatTxBuffer->dataLen);
+						UART_putString((UART_Module) uart_module, (uint8_t*)"\033[s\033[22;2H\033[2K\033[J");
+						xEventGroupSetBits(uart_interrupt_event, MAIL_UART3);
+						break;
+					}
+					txCounter++;
+				}
+			}
+			break;
+		}
+	}
 }
