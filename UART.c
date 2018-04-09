@@ -14,11 +14,18 @@ uint8_t uart3_background_buffer[32];
 uint8_t uart0_inBuffer[1];
 uint8_t uart3_inBuffer[1];
 
-uart_rtos_handle_t uart0_handler;
-struct _uart_handle t_handle;
+EventGroupHandle_t uart_interrupt_event;
 
+uart_rtos_handle_t uart0_handler;
 uart_rtos_handle_t uart3_handler;
+
+uint8_t uart0_irqData;
+uint8_t uart3_irqData;
+
+struct _uart_handle t_handle;
 struct _uart_handle t_handle_b;
+
+
 
 uart_rtos_config_t uart_config =
 { .base = UART0, .baudrate = UART0_BAUDRATE, .parity = kUART_ParityDisabled,
@@ -33,10 +40,15 @@ uart_rtos_config_t uart_config_b =
 void uart_init(void)
 {
 	NVIC_SetPriority(UART0_RX_TX_IRQn, 5);
+	NVIC_SetPriority(UART3_RX_TX_IRQn, 5);
 	uart_config.srcclk = CLOCK_GetFreq(UART0_CLK_SRC);
 	UART_RTOS_Init(&uart0_handler, &t_handle, &uart_config);
 	uart_config_b.srcclk = CLOCK_GetFreq(UART3_CLK_SRC);
 	UART_RTOS_Init(&uart3_handler, &t_handle_b, &uart_config_b);
+	uart_interrupt_event = xEventGroupCreate();
+
+	UART_EnableInterrupts(UART0, kUART_RxDataRegFullInterruptEnable | kUART_RxOverrunInterruptEnable);
+	EnableIRQ(UART0_IRQn);
 }
 
 void UART_putBytes(UART_Module module, uint8_t *data, size_t numBytes){
@@ -96,4 +108,42 @@ uint8_t UART_Echo(UART_Module module){
 	}
 	else
 		return 1; //Warning avoidance
+}
+
+void UART0_IRQHandler(void)
+{
+	if(UART_IRQ_ENABLE == (UART_IRQ_ENABLE & xEventGroupGetBitsFromISR(uart_interrupt_event)))
+		/* If new data arrived. */
+		if ((kUART_RxDataRegFullFlag | kUART_RxOverrunFlag)	& UART_GetStatusFlags(UART0))
+		{
+			uart0_irqData = UART_ReadByte(UART0);
+			xEventGroupSetBitsFromISR(uart_interrupt_event, UART0_RX_INTERRUPT_EVENT, pdFALSE);
+			portYIELD_FROM_ISR(pdFALSE);
+		}
+	UART0_DriverIRQHandler();
+
+    /* Add for ARM errata 838869, affects Cortex-M4, Cortex-M4F Store immediate overlapping
+      exception return operation might vector to incorrect interrupt */
+#if defined __CORTEX_M && (__CORTEX_M == 4U)
+    __DSB();
+#endif
+}
+
+void UART3_IRQHandler(void)
+{
+	if(UART_IRQ_ENABLE == (UART_IRQ_ENABLE & xEventGroupGetBitsFromISR(uart_interrupt_event)))
+		/* If new data arrived. */
+		if ((kUART_RxDataRegFullFlag | kUART_RxOverrunFlag)	& UART_GetStatusFlags(UART3))
+		{
+			uart3_irqData = UART_ReadByte(UART3);
+			xEventGroupSetBitsFromISR(uart_interrupt_event, UART3_RX_INTERRUPT_EVENT, pdFALSE);
+			portYIELD_FROM_ISR(pdFALSE);
+		}
+	UART3_DriverIRQHandler();
+
+    /* Add for ARM errata 838869, affects Cortex-M4, Cortex-M4F Store immediate overlapping
+      exception return operation might vector to incorrect interrupt */
+#if defined __CORTEX_M && (__CORTEX_M == 4U)
+    __DSB();
+#endif
 }

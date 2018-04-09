@@ -99,6 +99,7 @@ void BOARD_InitPins(void)
 	CLOCK_EnableClock(kCLOCK_PortB); /* Port B Clock Gate Control: Clock enabled */
 	CLOCK_EnableClock(kCLOCK_PortD); /* Port D Clock Gate Control: Clock enabled */
 	CLOCK_EnableClock(kCLOCK_PortE); /* Port E Clock Gate Control: Clock enabled */
+	CLOCK_EnableClock(kCLOCK_PortC); /* Port E Clock Gate Control: Clock enabled */
 	CLOCK_EnableClock(kCLOCK_I2c0);
 
 
@@ -115,8 +116,8 @@ void BOARD_InitPins(void)
 
 	PORT_SetPinMux(PORTB, PIN16_IDX, kPORT_MuxAlt3); /* PORTB16 (pin E10) is configured as UART0_RX */
 	PORT_SetPinMux(PORTB, PIN17_IDX, kPORT_MuxAlt3); /* PORTB17 (pin E9) is configured as UART0_TX */
-	PORT_SetPinMux(PORTB, PIN10_IDX, kPORT_MuxAlt3); /* PORTB10 (pin 62) is configured as UART3_RX */
-	PORT_SetPinMux(PORTB, PIN11_IDX, kPORT_MuxAlt3); /* PORTB11 (pin 63) is configured as UART3_TX */
+	PORT_SetPinMux(PORTC, PIN16_IDX, kPORT_MuxAlt3); /* PORTB10 (pin 62) is configured as UART3_RX */
+	PORT_SetPinMux(PORTC, PIN17_IDX, kPORT_MuxAlt3); /* PORTB11 (pin 63) is configured as UART3_TX */
 	PORT_SetPinMux(PORTD, PIN0_IDX, kPORT_MuxAsGpio); /* PORTD0 (pin A5) is configured as SPI0_PCS0 */
 	PORT_SetPinMux(PORTD, PIN1_IDX, kPORT_MuxAlt2); /* PORTD1 (pin D4) is configured as SPI0_SCK */
 	PORT_SetPinMux(PORTD, PIN2_IDX, kPORT_MuxAlt2); /* PORTD2 (pin C4) is configured as SPI0_SOUT */

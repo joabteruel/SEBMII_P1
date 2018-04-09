@@ -77,6 +77,8 @@ int main(void)
 			configMAX_PRIORITIES - 5, NULL);
 	xTaskCreate(menu0_Task, "menu0_task", configMINIMAL_STACK_SIZE, NULL,
 			configMAX_PRIORITIES - 2, NULL);
+	xTaskCreate(menu3_Task, "menu3_task", configMINIMAL_STACK_SIZE, NULL,
+			configMAX_PRIORITIES - 2, NULL);
 	xTaskCreate(timedateLCD_task, "timedateLCD_task", configMINIMAL_STACK_SIZE,
 			NULL, configMAX_PRIORITIES - 2, NULL);
 	xTaskCreate(getTime_task, "menu0_task", configMINIMAL_STACK_SIZE, NULL,

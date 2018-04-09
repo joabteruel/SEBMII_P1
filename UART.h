@@ -18,6 +18,15 @@
  ******************************************************************************/
 #define UART0_BAUDRATE 115200U
 #define UART3_BAUDRATE 115200U
+#define UART0_RX_INTERRUPT_EVENT (1<<0)
+#define UART3_RX_INTERRUPT_EVENT (1<<1)
+#define UART_IRQ_ENABLE (1<<2)
+
+#define UART0_IRQHandler UART0_RX_TX_IRQHandler
+#define UART3_IRQHandler UART3_RX_TX_IRQHandler
+#define UART0_IRQn UART0_RX_TX_IRQn
+#define UART3_IRQn UART3_RX_TX_IRQn
+
 
 /*******************************************************************************
  * Data Types
@@ -34,7 +43,7 @@ uint8_t UART_Echo(UART_Module module);
 void uart_init(void);
 void UART_putString(UART_Module module, uint8_t *string);
 void UART_putBytes(UART_Module module, uint8_t *data, size_t numBytes);
-uart_rtos_handle_t *getHandleUART0();
-uart_rtos_handle_t* getHandleUART3();
+//void UART0_RX_TX_DriverIRQHandler();
+
 
 #endif /* SOURCE_UART_H_ */

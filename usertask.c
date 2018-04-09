@@ -7,18 +7,23 @@
 
 #include "usertask.h"
 
-TaskHandle_t menuTask_handle;
+TaskHandle_t menu0Task_handle;
+TaskHandle_t menu3Task_handle;
 TaskHandle_t timedateLCD_handle;
 TaskHandle_t getTime_handle;
 TaskHandle_t setTime_handle;
 TaskHandle_t setDate_handle;
 TaskHandle_t hourFormat_handle;
 TaskHandle_t echoTask_handle;
+TaskHandle_t timeTerminal_handle;
+TaskHandle_t dateTerminal_handle;
 
 SemaphoreHandle_t spibus_mutex;
 SemaphoreHandle_t i2cbus_mutex;
 
 EventGroupHandle_t getTime_eventB;
+EventGroupHandle_t timeTerminal_eventB;
+extern EventGroupHandle_t uart_interrupt_event;
 
 QueueHandle_t g_time_queue;
 
@@ -59,13 +64,14 @@ void os_init()
 	spibus_mutex = xSemaphoreCreateMutex();
 	i2cbus_mutex = xSemaphoreCreateMutex();
 	getTime_eventB = xEventGroupCreate();
+	timeTerminal_eventB = xEventGroupCreate();
 	g_time_queue = xQueueCreate(1, sizeof(ascii_time_t*));
 }
 
 void menu0_Task(void *parameter)
 {
 	uint8_t recvBuffer;
-	menuTask_handle = xTaskGetCurrentTaskHandle();
+	menu0Task_handle = xTaskGetCurrentTaskHandle();
 
 	while (1)
 	{
@@ -74,30 +80,146 @@ void menu0_Task(void *parameter)
 		switch (recvBuffer - ASCII_NUMBER_MASK)
 		{
 		case 1:
-			xTaskCreate(memread_task, "memread_task", configMINIMAL_STACK_SIZE, NULL, configMAX_PRIORITIES-2, NULL);
+			xTaskCreate(memread_task, "memread_task", configMINIMAL_STACK_SIZE, (void*)UART_0, configMAX_PRIORITIES-2, NULL);
 			vTaskSuspend(NULL);
 			break;
 		case 3:
-			xTaskCreate(setTime_task, "setTime_task", configMINIMAL_STACK_SIZE, NULL, configMAX_PRIORITIES-2, NULL);
+			xTaskCreate(setTime_task, "setTime_task", configMINIMAL_STACK_SIZE, (void*)UART_0, configMAX_PRIORITIES-2, NULL);
 			vTaskSuspend(NULL);
 			break;
 		case 4:
-			xTaskCreate(setDate_task, "setDate_task", configMINIMAL_STACK_SIZE, NULL, configMAX_PRIORITIES-2, NULL);
+			xTaskCreate(setDate_task, "setDate_task", configMINIMAL_STACK_SIZE, (void*)UART_0, configMAX_PRIORITIES-2, NULL);
 			vTaskSuspend(NULL);
 			break;
 		case 5:
-			xTaskCreate(hourFormat_task, "hourFormat_task", configMINIMAL_STACK_SIZE, NULL, configMAX_PRIORITIES, NULL);
+			xTaskCreate(hourFormat_task, "hourFormat_task", configMINIMAL_STACK_SIZE, (void*)UART_0, configMAX_PRIORITIES-2, NULL);
+			vTaskSuspend(NULL);
+			break;
+		case 6:
+			xTaskCreate(timeTerminal_task, "timeTerminal_task", configMINIMAL_STACK_SIZE, (void*)UART_0, configMAX_PRIORITIES-2, NULL);
+			vTaskSuspend(NULL);
+			break;
+		case 7:
+			xTaskCreate(dateTerminal_task, "dateTerminal_task", configMINIMAL_STACK_SIZE, (void*)UART_0, configMAX_PRIORITIES-2, NULL);
 			vTaskSuspend(NULL);
 			break;
 		case 9:
 			vTaskSuspend(getTime_handle);
 			vTaskSuspend(timedateLCD_handle);
-			xTaskCreate(echo_Task, "echo_task", configMINIMAL_STACK_SIZE, NULL,
+			xTaskCreate(echo_Task, "echo_task", configMINIMAL_STACK_SIZE, (void*)UART_0,
 					configMAX_PRIORITIES - 2, NULL);
 			vTaskSuspend(NULL);
 			break;
 		default:
 			UART_putString(UART_0, (uint8_t*)
+					"\033[2J"
+					"\033[5;10H"
+					"Seleccion no valida");
+			vTaskDelay(pdMS_TO_TICKS(1500));
+		}
+	}
+}
+
+void menu3_Task(void *parameter)
+{
+	uint8_t recvBuffer;
+	menu3Task_handle = xTaskGetCurrentTaskHandle();
+
+	while (1)
+	{
+		UART_putString(UART_3, (uint8_t*) main_menuTxt);
+		recvBuffer = UART_Echo(UART_3);
+		switch (recvBuffer - ASCII_NUMBER_MASK)
+		{
+		case 1:
+			if(NULL != xTaskGetHandle("memread_task"))
+			{
+				UART_putString(UART_3, (uint8_t*) errorMes_Txt);
+				vTaskDelay(pdMS_TO_TICKS(3000));
+			}
+			else
+			{
+			xTaskCreate(memread_task, "memread_task", configMINIMAL_STACK_SIZE, (void*)UART_3, configMAX_PRIORITIES-2, NULL);
+			vTaskSuspend(NULL);
+			}
+			break;
+		case 3:
+			if(NULL != xTaskGetHandle("setTime_task"))
+			{
+				UART_putString(UART_3, (uint8_t*) errorMes_Txt);
+				vTaskDelay(pdMS_TO_TICKS(3000));
+			}
+			else
+			{
+			xTaskCreate(setTime_task, "setTime_task", configMINIMAL_STACK_SIZE, (void*)UART_3, configMAX_PRIORITIES-2, NULL);
+			vTaskSuspend(NULL);
+			}
+			break;
+		case 4:
+			if(NULL != xTaskGetHandle("setDate_task"))
+			{
+				UART_putString(UART_3, (uint8_t*) errorMes_Txt);
+				vTaskDelay(pdMS_TO_TICKS(3000));
+			}
+			else
+			{
+			xTaskCreate(setDate_task, "setDate_task", configMINIMAL_STACK_SIZE, (void*)UART_3, configMAX_PRIORITIES-2, NULL);
+			vTaskSuspend(NULL);
+			}
+			break;
+		case 5:
+			if(NULL != xTaskGetHandle("hourFormat_task"))
+			{
+				UART_putString(UART_3, (uint8_t*) errorMes_Txt);
+				vTaskDelay(pdMS_TO_TICKS(3000));
+			}
+			else
+			{
+			xTaskCreate(hourFormat_task, "hourFormat_task", configMINIMAL_STACK_SIZE, (void*)UART_3, configMAX_PRIORITIES-2, NULL);
+			vTaskSuspend(NULL);
+			}
+			break;
+		case 6:
+			if(NULL != xTaskGetHandle("timeTerminal_task"))
+			{
+				UART_putString(UART_3, (uint8_t*) errorMes_Txt);
+				vTaskDelay(pdMS_TO_TICKS(3000));
+			}
+			else
+			{
+			xTaskCreate(timeTerminal_task, "timeTerminal_task", configMINIMAL_STACK_SIZE, (void*)UART_3, configMAX_PRIORITIES-2, NULL);
+			vTaskSuspend(NULL);
+			}
+			break;
+		case 7:
+			if(NULL != xTaskGetHandle("dateTerminal_task"))
+			{
+				UART_putString(UART_3, (uint8_t*) errorMes_Txt);
+				vTaskDelay(pdMS_TO_TICKS(3000));
+			}
+			else
+			{
+			xTaskCreate(dateTerminal_task, "dateTerminal_task", configMINIMAL_STACK_SIZE, (void*)UART_3, configMAX_PRIORITIES-2, NULL);
+			vTaskSuspend(NULL);
+			}
+			break;
+		case 9:
+			vTaskSuspend(getTime_handle);
+			vTaskSuspend(timedateLCD_handle);
+			if(NULL != xTaskGetHandle("echo_task"))
+			{
+				UART_putString(UART_3, (uint8_t*) errorMes_Txt);
+				vTaskDelay(pdMS_TO_TICKS(3000));
+			}
+			else
+			{
+					xTaskCreate(echo_Task, "echo_task", configMINIMAL_STACK_SIZE, (void*)UART_3,
+							configMAX_PRIORITIES - 2, NULL);
+					vTaskSuspend(NULL);
+			}
+			break;
+		default:
+			UART_putString(UART_3, (uint8_t*)
 					"\033[2J"
 					"\033[5;10H"
 					"Seleccion no valida");
@@ -249,23 +371,25 @@ void getTime_task(void *parameter)
 			asciiDate->year_h = ((timeBuffer[6] & BCD_H) >> 4) + ASCII_NUMBER_MASK;
 			xQueueSend(g_time_queue, &asciiDate, portMAX_DELAY);
 			xEventGroupSetBits(getTime_eventB, EVENT_TIME_SET);
+			xEventGroupSetBits(timeTerminal_eventB, EVENT_TIME_SET);
 		}
 		else
 		{
 			ioerror = true;
 			xEventGroupSetBits(getTime_eventB, EVENT_TIME_ERR);
+			xEventGroupSetBits(timeTerminal_eventB, EVENT_TIME_ERR);
 		}
 		vTaskDelay(pdMS_TO_TICKS(500));
 	}
 }
 
-void echo_Task(void *parameter)
+void echo_Task(void * uart_module)
 {
 	echoTask_handle = xTaskGetCurrentTaskHandle();
 	uint8_t recvBuffer;
 	uint8_t maxChar = 0;
 
-	UART_putString(UART_0, (uint8_t*)echo_menuTxt);
+	UART_putString((UART_Module) uart_module, (uint8_t*) echo_menuTxt);
 
 	xSemaphoreTake(spibus_mutex, portMAX_DELAY);
 	LCDNokia_clear();
@@ -273,7 +397,7 @@ void echo_Task(void *parameter)
 
 	while (1)
 	{
-		recvBuffer = UART_Echo(UART_0);
+		recvBuffer = UART_Echo((UART_Module) uart_module);
 
 		if (ESC_KEY == recvBuffer)
 		{
@@ -282,7 +406,15 @@ void echo_Task(void *parameter)
 			xSemaphoreGive(spibus_mutex);
 			vTaskResume(timedateLCD_handle);
 			vTaskResume(getTime_handle);
-			vTaskResume(menuTask_handle);
+			switch((UART_Module)uart_module)
+			{
+			case UART_0:
+				vTaskResume(menu0Task_handle);
+				break;
+			case UART_3:
+				vTaskResume(menu3Task_handle);
+				break;
+			}
 			vTaskDelete(echoTask_handle);
 		}
 
@@ -345,7 +477,7 @@ void memread_task(void *parameters){
 	}
 }
 
-void setTime_task(void * params)
+void setTime_task(void * uart_module)
 {
 	setTime_handle = xTaskGetCurrentTaskHandle();
 	uint8_t charCounter = 0;
@@ -353,7 +485,7 @@ void setTime_task(void * params)
 	ascii_time_t *asciiDate;
 	uint8_t timeFormat;
 
-	UART_putString(UART_0, (uint8_t*)setTime_Txt);
+	UART_putString((UART_Module) uart_module, (uint8_t*)setTime_Txt);
 
 	while(1)
 	{
@@ -362,13 +494,21 @@ void setTime_task(void * params)
 			xQueueReceive(g_time_queue, &asciiDate, portMAX_DELAY);
 		} while (0 != uxQueueMessagesWaiting(g_time_queue));
 
-		UART_putString(UART_0, (uint8_t*)"\r\nIntroduzca la hora en formato HH:MM --> ");
+		UART_putString((UART_Module) uart_module, (uint8_t*)"\r\nIntroduzca la hora en formato HH:MM --> ");
 		while(4 > charCounter)
 		{
-			newTime[charCounter] = UART_Echo(UART_0);
+			newTime[charCounter] = UART_Echo((UART_Module) uart_module);
 			if(ESC_KEY == newTime[charCounter])
 			{
-				vTaskResume(menuTask_handle);
+				switch((UART_Module)uart_module)
+				{
+				case UART_0:
+					vTaskResume(menu0Task_handle);
+					break;
+				case UART_3:
+					vTaskResume(menu3Task_handle);
+					break;
+				}
 				vTaskDelete(setTime_handle);
 			}
 			charCounter++;
@@ -376,9 +516,9 @@ void setTime_task(void * params)
 		charCounter = 0;
 		if (FORMAT_12H == asciiDate->timeformat)
 		{
-			UART_putString(UART_0,
+			UART_putString((UART_Module) uart_module,
 					(uint8_t*) "\r\nSe esta usando un formato de 12 Horas,\r\nindica si la nueva hora es AM o PM (a/p)");
-			switch(UART_Echo(UART_0))
+			switch(UART_Echo((UART_Module) uart_module))
 			{
 			case 'a':
 				timeFormat = FORMAT_AM;
@@ -388,27 +528,35 @@ void setTime_task(void * params)
 				break;
 			}
 		}
-		UART_putString(UART_0, (uint8_t*)"\r\nLa hora introducida es ");
-		UART_putBytes(UART_0, &newTime[0], 1);
-		UART_putBytes(UART_0, &newTime[1], 1);
-		UART_putBytes(UART_0, (uint8_t*)":", 1);
-		UART_putBytes(UART_0, &newTime[2], 1);
-		UART_putBytes(UART_0, &newTime[3], 1);
+		UART_putString((UART_Module) uart_module, (uint8_t*)"\r\nLa hora introducida es ");
+		UART_putBytes((UART_Module) uart_module, &newTime[0], 1);
+		UART_putBytes((UART_Module) uart_module, &newTime[1], 1);
+		UART_putBytes((UART_Module) uart_module, (uint8_t*)":", 1);
+		UART_putBytes((UART_Module) uart_module, &newTime[2], 1);
+		UART_putBytes((UART_Module) uart_module, &newTime[3], 1);
 		if (FORMAT_12H == asciiDate->timeformat)
 		{
 			switch(timeFormat)
 			{
 			case FORMAT_AM:
-				UART_putString(UART_0, (uint8_t*)" am");
+				UART_putString((UART_Module) uart_module, (uint8_t*)" am");
 				break;
 			case FORMAT_PM:
-				UART_putString(UART_0, (uint8_t*)" pm");
+				UART_putString((UART_Module) uart_module, (uint8_t*)" pm");
 			}
 		}
-		UART_putString(UART_0, (uint8_t*)"\r\nPresiona cualquier tecla para confirmar o ESC para cancelar...");
-		if(ESC_KEY == UART_Echo(UART_0))
+		UART_putString((UART_Module) uart_module, (uint8_t*)"\r\nPresiona cualquier tecla para confirmar o ESC para cancelar...");
+		if(ESC_KEY == UART_Echo((UART_Module) uart_module))
 		{
-			vTaskResume(menuTask_handle);
+			switch((UART_Module)uart_module)
+			{
+			case UART_0:
+				vTaskResume(menu0Task_handle);
+				break;
+			case UART_3:
+				vTaskResume(menu3Task_handle);
+				break;
+			}
 			vTaskDelete(setTime_handle);
 		}
 		else
@@ -443,48 +591,72 @@ void setTime_task(void * params)
 			I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCMIN, (newTime[2]-ASCII_NUMBER_MASK)<<4 | (newTime[3]-ASCII_NUMBER_MASK));
 			I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCSEC, OSCILLATOR_ON);
 			xSemaphoreGive(i2cbus_mutex);
-			vTaskResume(menuTask_handle);
+			switch((UART_Module)uart_module)
+			{
+			case UART_0:
+				vTaskResume(menu0Task_handle);
+				break;
+			case UART_3:
+				vTaskResume(menu3Task_handle);
+				break;
+			}
 			vTaskDelete(setTime_handle);
 		}
 	}
 
 }
 
-void setDate_task(void * params)
+void setDate_task(void * uart_module)
 {
 	setDate_handle = xTaskGetCurrentTaskHandle();
 	uint8_t charCounter = 0;
 	uint8_t newDate[7];
 
-	UART_putString(UART_0, (uint8_t*)setDate_Txt);
+	UART_putString((UART_Module) uart_module, (uint8_t*)setDate_Txt);
 
 	while(1)
 	{
-		UART_putString(UART_0, (uint8_t*)"\r\nIntroduzca la fecha en formato DD/MM/AA --> ");
+		UART_putString((UART_Module) uart_module, (uint8_t*)"\r\nIntroduzca la fecha en formato DD/MM/AA --> ");
 		while(6 > charCounter)
 		{
-			newDate[charCounter] = UART_Echo(UART_0);
+			newDate[charCounter] = UART_Echo((UART_Module) uart_module);
 			if(ESC_KEY == newDate[charCounter])
 			{
-				vTaskResume(menuTask_handle);
+				switch((UART_Module)uart_module)
+				{
+				case UART_0:
+					vTaskResume(menu0Task_handle);
+					break;
+				case UART_3:
+					vTaskResume(menu3Task_handle);
+					break;
+				}
 				vTaskDelete(setDate_handle);
 			}
 			charCounter++;
 		}
 		charCounter = 0;
-		UART_putString(UART_0, (uint8_t*)"\r\nLa fecha introducida es ");
-		UART_putBytes(UART_0, &newDate[0], 1);
-		UART_putBytes(UART_0, &newDate[1], 1);
-		UART_putBytes(UART_0, (uint8_t*)"-", 1);
-		UART_putBytes(UART_0, &newDate[2], 1);
-		UART_putBytes(UART_0, &newDate[3], 1);
-		UART_putBytes(UART_0, (uint8_t*)"-20", 1);
-		UART_putBytes(UART_0, &newDate[4], 1);
-		UART_putBytes(UART_0, &newDate[5], 1);
-		UART_putString(UART_0, (uint8_t*)"\r\nPresiona cualquier tecla para confirmar o ESC para cancelar...");
-		if(ESC_KEY == UART_Echo(UART_0))
+		UART_putString((UART_Module) uart_module, (uint8_t*)"\r\nLa fecha introducida es ");
+		UART_putBytes((UART_Module) uart_module, &newDate[0], 1);
+		UART_putBytes((UART_Module) uart_module, &newDate[1], 1);
+		UART_putBytes((UART_Module) uart_module, (uint8_t*)"-", 1);
+		UART_putBytes((UART_Module) uart_module, &newDate[2], 1);
+		UART_putBytes((UART_Module) uart_module, &newDate[3], 1);
+		UART_putBytes((UART_Module) uart_module, (uint8_t*)"-20", 1);
+		UART_putBytes((UART_Module) uart_module, &newDate[4], 1);
+		UART_putBytes((UART_Module) uart_module, &newDate[5], 1);
+		UART_putString((UART_Module) uart_module, (uint8_t*)"\r\nPresiona cualquier tecla para confirmar o ESC para cancelar...");
+		if(ESC_KEY == UART_Echo((UART_Module) uart_module))
 		{
-			vTaskResume(menuTask_handle);
+			switch((UART_Module)uart_module)
+			{
+			case UART_0:
+				vTaskResume(menu0Task_handle);
+				break;
+			case UART_3:
+				vTaskResume(menu3Task_handle);
+				break;
+			}
 			vTaskDelete(setDate_handle);
 		}
 		else
@@ -496,18 +668,26 @@ void setDate_task(void * params)
 			I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCYEAR, (newDate[4]-ASCII_NUMBER_MASK)<<4 | (newDate[5]-ASCII_NUMBER_MASK));
 			I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCSEC, OSCILLATOR_ON);
 			xSemaphoreGive(i2cbus_mutex);
-			vTaskResume(menuTask_handle);
+			switch((UART_Module)uart_module)
+			{
+			case UART_0:
+				vTaskResume(menu0Task_handle);
+				break;
+			case UART_3:
+				vTaskResume(menu3Task_handle);
+				break;
+			}
 			vTaskDelete(setDate_handle);
 		}
 	}
 }
 
-void hourFormat_task(void * params)
+void hourFormat_task(void * uart_module)
 {
 	hourFormat_handle = xTaskGetCurrentTaskHandle();
 	ascii_time_t *asciiDate;
 
-	UART_putString(UART_0, (uint8_t*) hourFormat_Txt);
+	UART_putString((UART_Module) uart_module, (uint8_t*) hourFormat_Txt);
 
 	while (1)
 	{
@@ -516,13 +696,13 @@ void hourFormat_task(void * params)
 			xQueueReceive(g_time_queue, &asciiDate, portMAX_DELAY);
 		} while (0 != uxQueueMessagesWaiting(g_time_queue));
 
-		UART_putString(UART_0, (uint8_t*) "\r\nEl formato de hora actual es: ");
+		UART_putString((UART_Module) uart_module, (uint8_t*) "\r\nEl formato de hora actual es: ");
 		switch (asciiDate->timeformat)
 		{
 		case FORMAT_24H:
-			UART_putString(UART_0,
+			UART_putString((UART_Module) uart_module,
 					(uint8_t*) "* 24 Horas *\r\n\nDeseas cambiarlo a 12 Horas? (y/n)");
-			if ('y' == UART_Echo(UART_0))
+			if ('y' == UART_Echo((UART_Module) uart_module))
 			{
 				xSemaphoreTake(i2cbus_mutex, portMAX_DELAY);
 				I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCSEC, OSCILLATOR_OFF);
@@ -532,25 +712,41 @@ void hourFormat_task(void * params)
 								| (asciiDate->hours_l - ASCII_NUMBER_MASK)));
 				I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCSEC, OSCILLATOR_ON);
 				xSemaphoreGive(i2cbus_mutex);
-				UART_putString(UART_0,
+				UART_putString((UART_Module) uart_module,
 						(uint8_t*) "\r\n\nEl formato ha sido cambiado, presiona una tecla para salir...");
-				UART_Echo(UART_0);
-				vTaskResume(menuTask_handle);
+				UART_Echo((UART_Module) uart_module);
+				switch ((UART_Module) uart_module)
+				{
+				case UART_0:
+					vTaskResume(menu0Task_handle);
+					break;
+				case UART_3:
+					vTaskResume(menu3Task_handle);
+					break;
+				}
 				vTaskDelete(hourFormat_handle);
 			}
 			else
 			{
-				UART_putString(UART_0,
+				UART_putString((UART_Module) uart_module,
 						(uint8_t*) "\r\n\nEl formato permanece igual, presiona una tecla para salir...");
-				UART_Echo(UART_0);
-				vTaskResume(menuTask_handle);
+				UART_Echo((UART_Module) uart_module);
+				switch((UART_Module)uart_module)
+				{
+				case UART_0:
+					vTaskResume(menu0Task_handle);
+					break;
+				case UART_3:
+					vTaskResume(menu3Task_handle);
+					break;
+				}
 				vTaskDelete(hourFormat_handle);
 			}
 			break;
 		case FORMAT_12H:
-			UART_putString(UART_0,
+			UART_putString((UART_Module) uart_module,
 					(uint8_t*) "* 12 Horas *\r\n\nDeseas cambiarlo a 24 Horas? (y/n)");
-			if ('y' == UART_Echo(UART_0))
+			if ('y' == UART_Echo((UART_Module) uart_module))
 			{
 				xSemaphoreTake(i2cbus_mutex, portMAX_DELAY);
 				I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCSEC, OSCILLATOR_OFF);
@@ -560,21 +756,181 @@ void hourFormat_task(void * params)
 								| (asciiDate->hours_l - ASCII_NUMBER_MASK)));
 				I2C_Write(I2C0, RTC_DEVICE_ADD, REG_RTCSEC, OSCILLATOR_ON);
 				xSemaphoreGive(i2cbus_mutex);
-				UART_putString(UART_0,
+				UART_putString((UART_Module) uart_module,
 						(uint8_t*) "\r\n\nEl formato ha sido cambiado, presiona una tecla para salir...");
-				UART_Echo(UART_0);
-				vTaskResume(menuTask_handle);
+				UART_Echo((UART_Module) uart_module);
+				switch((UART_Module)uart_module)
+				{
+				case UART_0:
+					vTaskResume(menu0Task_handle);
+					break;
+				case UART_3:
+					vTaskResume(menu3Task_handle);
+					break;
+				}
 				vTaskDelete(hourFormat_handle);
 			}
 			else
 			{
-				UART_putString(UART_0,
+				UART_putString((UART_Module) uart_module,
 						(uint8_t*) "\r\n\nEl formato permanece igual, presiona una tecla para salir...");
-				UART_Echo(UART_0);
-				vTaskResume(menuTask_handle);
+				UART_Echo((UART_Module) uart_module);
+				switch((UART_Module)uart_module)
+				{
+				case UART_0:
+					vTaskResume(menu0Task_handle);
+					break;
+				case UART_3:
+					vTaskResume(menu3Task_handle);
+					break;
+				}
 				vTaskDelete(hourFormat_handle);
 			}
 			break;
 		}
 	}
+}
+
+void timeTerminal_task(void * uart_module)
+{
+	timeTerminal_handle = xTaskGetCurrentTaskHandle();
+	ascii_time_t *asciiDate;
+
+	UART_putString((UART_Module) uart_module, (uint8_t*) terminalTime_Txt);
+
+	while (1)
+	{
+		xEventGroupWaitBits(timeTerminal_eventB,
+				(EVENT_TIME_SET | EVENT_TIME_ERR), pdFALSE, pdFALSE,
+				portMAX_DELAY);
+		EventBits_t event = xEventGroupGetBits(timeTerminal_eventB);
+		xEventGroupClearBits(timeTerminal_eventB,
+				EVENT_TIME_ERR | EVENT_TIME_SET);
+		if (EVENT_TIME_ERR == (event & EVENT_TIME_ERR))
+		{
+			UART_putString((UART_Module) uart_module, (uint8_t*) terminalTime_Txt);
+			UART_putString((UART_Module) uart_module,
+					(uint8_t*) "\r\n\n --Error de lectura, verificar conexion al bus de I2C--");
+		}
+		else
+		{
+			do
+			{
+				xQueueReceive(g_time_queue, &asciiDate, portMAX_DELAY);
+			} while (0 != uxQueueMessagesWaiting(g_time_queue));
+
+			UART_putString((UART_Module) uart_module, (uint8_t*) terminalTime_Txt);
+			UART_putString((UART_Module) uart_module, (uint8_t*) "\r\n\nLa hora actual es: \r\n\n"
+					"      ");
+			UART_putBytes((UART_Module) uart_module, &asciiDate->hours_h, 1);
+			UART_putBytes((UART_Module) uart_module, &asciiDate->hours_l, 1);
+			UART_putBytes((UART_Module) uart_module, (uint8_t*) ":", 1);
+			UART_putBytes((UART_Module) uart_module, &asciiDate->minutes_h, 1);
+			UART_putBytes((UART_Module) uart_module, &asciiDate->minutes_l, 1);
+			UART_putBytes((UART_Module) uart_module, (uint8_t*) ":", 1);
+			UART_putBytes((UART_Module) uart_module, &asciiDate->seconds_h, 1);
+			UART_putBytes((UART_Module) uart_module, &asciiDate->seconds_l, 1);
+			if (FORMAT_12H == asciiDate->timeformat)
+			{
+				switch (asciiDate->ampm)
+				{
+				case FORMAT_AM:
+					UART_putString((UART_Module) uart_module,
+							(uint8_t*) " am\r\n\n\n\nPresione cualquier tecla para salir");
+					break;
+				case FORMAT_PM:
+					UART_putString((UART_Module) uart_module,
+							(uint8_t*) " pm\r\n\n\n\nPresione cualquier tecla para salir");
+					break;
+				}
+			}
+			else
+			{
+				UART_putString((UART_Module) uart_module,
+						(uint8_t*) "\r\n\n\n\n -- Presione cualquier tecla para salir --");
+			}
+			vPortFree(asciiDate);
+
+			xEventGroupSetBits(uart_interrupt_event, UART_IRQ_ENABLE);
+			EventBits_t event = xEventGroupGetBits(uart_interrupt_event);
+			if(UART0_RX_INTERRUPT_EVENT == (UART0_RX_INTERRUPT_EVENT & event) && (UART_Module)uart_module == UART_0)
+			{
+				xEventGroupClearBits(uart_interrupt_event,UART0_RX_INTERRUPT_EVENT);
+				xEventGroupClearBits(uart_interrupt_event, UART_IRQ_ENABLE);
+				vTaskResume(menu0Task_handle);
+				vTaskDelete(timeTerminal_handle);
+			}
+			if(UART3_RX_INTERRUPT_EVENT == (UART3_RX_INTERRUPT_EVENT & event) && (UART_Module)uart_module == UART_3)
+			{
+				xEventGroupClearBits(uart_interrupt_event,UART3_RX_INTERRUPT_EVENT);
+				xEventGroupClearBits(uart_interrupt_event, UART_IRQ_ENABLE);
+				vTaskResume(menu3Task_handle);
+				vTaskDelete(timeTerminal_handle);
+			}
+		}
+	}
+}
+
+void dateTerminal_task(void * uart_module)
+{
+	dateTerminal_handle = xTaskGetCurrentTaskHandle();
+	ascii_time_t *asciiDate;
+
+	UART_putString((UART_Module) uart_module, (uint8_t*) terminalDate_Txt);
+
+	while (1)
+	{
+		xEventGroupWaitBits(timeTerminal_eventB,
+				(EVENT_TIME_SET | EVENT_TIME_ERR), pdFALSE, pdFALSE,
+				portMAX_DELAY);
+		EventBits_t event = xEventGroupGetBits(timeTerminal_eventB);
+		xEventGroupClearBits(timeTerminal_eventB,
+				EVENT_TIME_ERR | EVENT_TIME_SET);
+		if (EVENT_TIME_ERR == (event & EVENT_TIME_ERR))
+		{
+			UART_putString((UART_Module) uart_module, (uint8_t*) terminalDate_Txt);
+			UART_putString((UART_Module) uart_module,
+					(uint8_t*) "\r\n\n --Error de lectura, verificar conexion al bus de I2C--");
+		}
+		else
+		{
+			do
+			{
+				xQueueReceive(g_time_queue, &asciiDate, portMAX_DELAY);
+			} while (0 != uxQueueMessagesWaiting(g_time_queue));
+
+			UART_putString((UART_Module) uart_module, (uint8_t*) terminalDate_Txt);
+			UART_putString((UART_Module) uart_module, (uint8_t*) "\r\n\nLa fecha de hoy es: \r\n\n"
+					"      ");
+			UART_putBytes((UART_Module) uart_module, &asciiDate->day_h, 1);
+			UART_putBytes((UART_Module) uart_module, &asciiDate->day_l, 1);
+			UART_putBytes((UART_Module) uart_module, (uint8_t*) "-", 1);
+			UART_putBytes((UART_Module) uart_module, &asciiDate->month_h, 1);
+			UART_putBytes((UART_Module) uart_module, &asciiDate->month_l, 1);
+			UART_putString((UART_Module) uart_module, (uint8_t*) "-20");
+			UART_putBytes((UART_Module) uart_module, &asciiDate->year_h, 1);
+			UART_putBytes((UART_Module) uart_module, &asciiDate->year_l, 1);
+			UART_putString((UART_Module) uart_module,
+					(uint8_t*) "\r\n\n\n\n -- Presione cualquier tecla para salir --");
+			vPortFree(asciiDate);
+
+			xEventGroupSetBits(uart_interrupt_event, UART_IRQ_ENABLE);
+			EventBits_t event = xEventGroupGetBits(uart_interrupt_event);
+			if(UART0_RX_INTERRUPT_EVENT == (UART0_RX_INTERRUPT_EVENT & event) && (UART_Module)uart_module == UART_0)
+			{
+				xEventGroupClearBits(uart_interrupt_event,UART0_RX_INTERRUPT_EVENT);
+				xEventGroupClearBits(uart_interrupt_event, UART_IRQ_ENABLE);
+				vTaskResume(menu0Task_handle);
+				vTaskDelete(dateTerminal_handle);
+			}
+			if(UART3_RX_INTERRUPT_EVENT == (UART3_RX_INTERRUPT_EVENT & event) && (UART_Module)uart_module == UART_3)
+			{
+				xEventGroupClearBits(uart_interrupt_event,UART3_RX_INTERRUPT_EVENT);
+				xEventGroupClearBits(uart_interrupt_event, UART_IRQ_ENABLE);
+				vTaskResume(menu3Task_handle);
+				vTaskDelete(dateTerminal_handle);
+			}
+		}
+	}
+
 }
