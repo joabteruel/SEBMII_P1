@@ -80,35 +80,91 @@ void menu0_Task(void *parameter)
 		switch (recvBuffer - ASCII_NUMBER_MASK)
 		{
 		case 1:
-			xTaskCreate(memread_task, "memread_task", configMINIMAL_STACK_SIZE, (void*)UART_0, configMAX_PRIORITIES-2, NULL);
-			vTaskSuspend(NULL);
+			if(NULL != xTaskGetHandle("memread_task"))
+			{
+				UART_putString(UART_0, (uint8_t*) errorMes_Txt);
+				vTaskDelay(pdMS_TO_TICKS(3000));
+			}
+			else
+			{
+				xTaskCreate(memread_task, "memread_task", configMINIMAL_STACK_SIZE, (void*)UART_0, configMAX_PRIORITIES-2, NULL);
+				vTaskSuspend(NULL);
+			}
 			break;
 		case 3:
-			xTaskCreate(setTime_task, "setTime_task", configMINIMAL_STACK_SIZE, (void*)UART_0, configMAX_PRIORITIES-2, NULL);
-			vTaskSuspend(NULL);
+			if(NULL != xTaskGetHandle("setTime_task"))
+			{
+				UART_putString(UART_0, (uint8_t*) errorMes_Txt);
+				vTaskDelay(pdMS_TO_TICKS(3000));
+			}
+			else
+			{
+				xTaskCreate(setTime_task, "setTime_task", configMINIMAL_STACK_SIZE, (void*)UART_0, configMAX_PRIORITIES-2, NULL);
+				vTaskSuspend(NULL);
+			}
 			break;
 		case 4:
-			xTaskCreate(setDate_task, "setDate_task", configMINIMAL_STACK_SIZE, (void*)UART_0, configMAX_PRIORITIES-2, NULL);
-			vTaskSuspend(NULL);
+			if(NULL != xTaskGetHandle("setDate_task"))
+			{
+				UART_putString(UART_0, (uint8_t*) errorMes_Txt);
+				vTaskDelay(pdMS_TO_TICKS(3000));
+			}
+			else
+			{
+				xTaskCreate(setDate_task, "setDate_task", configMINIMAL_STACK_SIZE, (void*)UART_0, configMAX_PRIORITIES-2, NULL);
+				vTaskSuspend(NULL);
+			}
 			break;
 		case 5:
-			xTaskCreate(hourFormat_task, "hourFormat_task", configMINIMAL_STACK_SIZE, (void*)UART_0, configMAX_PRIORITIES-2, NULL);
-			vTaskSuspend(NULL);
+			if(NULL != xTaskGetHandle("hourFormat_task"))
+			{
+				UART_putString(UART_0, (uint8_t*) errorMes_Txt);
+				vTaskDelay(pdMS_TO_TICKS(3000));
+			}
+			else
+			{
+				xTaskCreate(hourFormat_task, "hourFormat_task", configMINIMAL_STACK_SIZE, (void*)UART_0, configMAX_PRIORITIES-2, NULL);
+				vTaskSuspend(NULL);
+			}
 			break;
 		case 6:
-			xTaskCreate(timeTerminal_task, "timeTerminal_task", configMINIMAL_STACK_SIZE, (void*)UART_0, configMAX_PRIORITIES-2, NULL);
-			vTaskSuspend(NULL);
+			if(NULL != xTaskGetHandle("timeTerminal_task"))
+			{
+				UART_putString(UART_0, (uint8_t*) errorMes_Txt);
+				vTaskDelay(pdMS_TO_TICKS(3000));
+			}
+			else
+			{
+				xTaskCreate(timeTerminal_task, "timeTerminal_task", configMINIMAL_STACK_SIZE, (void*)UART_0, configMAX_PRIORITIES-2, NULL);
+				vTaskSuspend(NULL);
+			}
 			break;
 		case 7:
-			xTaskCreate(dateTerminal_task, "dateTerminal_task", configMINIMAL_STACK_SIZE, (void*)UART_0, configMAX_PRIORITIES-2, NULL);
-			vTaskSuspend(NULL);
+			if(NULL != xTaskGetHandle("dateTerminal_task"))
+			{
+				UART_putString(UART_0, (uint8_t*) errorMes_Txt);
+				vTaskDelay(pdMS_TO_TICKS(3000));
+			}
+			else
+			{
+				xTaskCreate(dateTerminal_task, "dateTerminal_task", configMINIMAL_STACK_SIZE, (void*)UART_0, configMAX_PRIORITIES-2, NULL);
+				vTaskSuspend(NULL);
+			}
 			break;
 		case 9:
 			vTaskSuspend(getTime_handle);
 			vTaskSuspend(timedateLCD_handle);
+			if(NULL != xTaskGetHandle("echo_task"))
+			{
+				UART_putString(UART_0, (uint8_t*) errorMes_Txt);
+				vTaskDelay(pdMS_TO_TICKS(3000));
+			}
+			else
+			{
 			xTaskCreate(echo_Task, "echo_task", configMINIMAL_STACK_SIZE, (void*)UART_0,
 					configMAX_PRIORITIES - 2, NULL);
 			vTaskSuspend(NULL);
+			}
 			break;
 		default:
 			UART_putString(UART_0, (uint8_t*)
