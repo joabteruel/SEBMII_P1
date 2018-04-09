@@ -112,7 +112,7 @@ uint8_t UART_Echo(UART_Module module){
 
 void UART0_IRQHandler(void)
 {
-	if(UART_IRQ_ENABLE == (UART_IRQ_ENABLE & xEventGroupGetBitsFromISR(uart_interrupt_event)))
+	if(UART0_IRQ_ENABLE == (UART0_IRQ_ENABLE & xEventGroupGetBitsFromISR(uart_interrupt_event)))
 		/* If new data arrived. */
 		if ((kUART_RxDataRegFullFlag | kUART_RxOverrunFlag)	& UART_GetStatusFlags(UART0))
 		{
@@ -131,7 +131,7 @@ void UART0_IRQHandler(void)
 
 void UART3_IRQHandler(void)
 {
-	if(UART_IRQ_ENABLE == (UART_IRQ_ENABLE & xEventGroupGetBitsFromISR(uart_interrupt_event)))
+	if(UART3_IRQ_ENABLE == (UART3_IRQ_ENABLE & xEventGroupGetBitsFromISR(uart_interrupt_event)))
 		/* If new data arrived. */
 		if ((kUART_RxDataRegFullFlag | kUART_RxOverrunFlag)	& UART_GetStatusFlags(UART3))
 		{

@@ -20,7 +20,8 @@
 #define UART3_BAUDRATE 115200U
 #define UART0_RX_INTERRUPT_EVENT (1<<0)
 #define UART3_RX_INTERRUPT_EVENT (1<<1)
-#define UART_IRQ_ENABLE (1<<2)
+#define UART0_IRQ_ENABLE (1<<2)
+#define UART3_IRQ_ENABLE (1<<3)
 
 #define UART0_IRQHandler UART0_RX_TX_IRQHandler
 #define UART3_IRQHandler UART3_RX_TX_IRQHandler
