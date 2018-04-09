@@ -49,6 +49,8 @@ void uart_init(void)
 
 	UART_EnableInterrupts(UART0, kUART_RxDataRegFullInterruptEnable | kUART_RxOverrunInterruptEnable);
 	EnableIRQ(UART0_IRQn);
+	UART_EnableInterrupts(UART3, kUART_RxDataRegFullInterruptEnable | kUART_RxOverrunInterruptEnable);
+	EnableIRQ(UART3_IRQn);
 }
 
 void UART_putBytes(UART_Module module, uint8_t *data, size_t numBytes){
