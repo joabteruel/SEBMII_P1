@@ -23,6 +23,7 @@ SemaphoreHandle_t i2cbus_mutex;
 
 EventGroupHandle_t getTime_eventB;
 EventGroupHandle_t timeTerminal_eventB;
+extern EventGroupHandle_t uart_interrupt_event;
 
 QueueHandle_t g_time_queue;
 
@@ -849,17 +850,23 @@ void timeTerminal_task(void * uart_module)
 						(uint8_t*) "\r\n\n\n\n -- Presione cualquier tecla para salir --");
 			}
 			vPortFree(asciiDate);
-			UART_Echo((UART_Module) uart_module);
-			switch((UART_Module)uart_module)
+
+			xEventGroupSetBits(uart_interrupt_event, UART_IRQ_ENABLE);
+			EventBits_t event = xEventGroupGetBits(uart_interrupt_event);
+			if(UART0_RX_INTERRUPT_EVENT == (UART0_RX_INTERRUPT_EVENT & event) && (UART_Module)uart_module == UART_0)
 			{
-			case UART_0:
+				xEventGroupClearBits(uart_interrupt_event,UART0_RX_INTERRUPT_EVENT);
+				xEventGroupClearBits(uart_interrupt_event, UART_IRQ_ENABLE);
 				vTaskResume(menu0Task_handle);
-				break;
-			case UART_3:
-				vTaskResume(menu3Task_handle);
-				break;
+				vTaskDelete(timeTerminal_handle);
 			}
-			vTaskDelete(timeTerminal_handle);
+			if(UART3_RX_INTERRUPT_EVENT == (UART3_RX_INTERRUPT_EVENT & event) && (UART_Module)uart_module == UART_3)
+			{
+				xEventGroupClearBits(uart_interrupt_event,UART3_RX_INTERRUPT_EVENT);
+				xEventGroupClearBits(uart_interrupt_event, UART_IRQ_ENABLE);
+				vTaskResume(menu3Task_handle);
+				vTaskDelete(timeTerminal_handle);
+			}
 		}
 	}
 }
@@ -906,17 +913,23 @@ void dateTerminal_task(void * uart_module)
 			UART_putString((UART_Module) uart_module,
 					(uint8_t*) "\r\n\n\n\n -- Presione cualquier tecla para salir --");
 			vPortFree(asciiDate);
-			UART_Echo((UART_Module) uart_module);
-			switch((UART_Module)uart_module)
+
+			xEventGroupSetBits(uart_interrupt_event, UART_IRQ_ENABLE);
+			EventBits_t event = xEventGroupGetBits(uart_interrupt_event);
+			if(UART0_RX_INTERRUPT_EVENT == (UART0_RX_INTERRUPT_EVENT & event) && (UART_Module)uart_module == UART_0)
 			{
-			case UART_0:
+				xEventGroupClearBits(uart_interrupt_event,UART0_RX_INTERRUPT_EVENT);
+				xEventGroupClearBits(uart_interrupt_event, UART_IRQ_ENABLE);
 				vTaskResume(menu0Task_handle);
-				break;
-			case UART_3:
-				vTaskResume(menu3Task_handle);
-				break;
+				vTaskDelete(dateTerminal_handle);
 			}
-			vTaskDelete(dateTerminal_handle);
+			if(UART3_RX_INTERRUPT_EVENT == (UART3_RX_INTERRUPT_EVENT & event) && (UART_Module)uart_module == UART_3)
+			{
+				xEventGroupClearBits(uart_interrupt_event,UART3_RX_INTERRUPT_EVENT);
+				xEventGroupClearBits(uart_interrupt_event, UART_IRQ_ENABLE);
+				vTaskResume(menu3Task_handle);
+				vTaskDelete(dateTerminal_handle);
+			}
 		}
 	}
 

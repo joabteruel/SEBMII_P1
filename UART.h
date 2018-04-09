@@ -18,7 +18,15 @@
  ******************************************************************************/
 #define UART0_BAUDRATE 115200U
 #define UART3_BAUDRATE 115200U
-#define UART0_INTERRUPT_EVENT (1<<0)
+#define UART0_RX_INTERRUPT_EVENT (1<<0)
+#define UART3_RX_INTERRUPT_EVENT (1<<1)
+#define UART_IRQ_ENABLE (1<<2)
+
+#define UART0_IRQHandler UART0_RX_TX_IRQHandler
+#define UART3_IRQHandler UART3_RX_TX_IRQHandler
+#define UART0_IRQn UART0_RX_TX_IRQn
+#define UART3_IRQn UART3_RX_TX_IRQn
+
 
 /*******************************************************************************
  * Data Types
