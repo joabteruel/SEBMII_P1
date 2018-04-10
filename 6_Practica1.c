@@ -73,6 +73,7 @@ int main(void)
 	uart_init();
 	os_init();
 
+
 	xTaskCreate(osNotDeadLED, "osNotDead", configMINIMAL_STACK_SIZE, NULL,
 			configMAX_PRIORITIES - 5, NULL);
 	xTaskCreate(menu0_Task, "menu0_task", configMINIMAL_STACK_SIZE, NULL,

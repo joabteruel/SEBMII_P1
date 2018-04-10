@@ -81,18 +81,21 @@ uint16_t asciiToHex(uint8_t *string)
 {
 	volatile uint16_t hexAddress;
 	hexAddress = 0x0000;
-	while (*string)
+	uint8_t counter = 0;
+	while (4 > counter)
 	{
 		hexAddress = hexAddress << 4;
 		if (*string >= 'A' && *string <= 'F')
 		{
 			hexAddress |= *string - ASCII_LETTER_MASK;
 			*string++;
+			counter++;
 		}
 		else
 		{
 			hexAddress |= *string - ASCII_NUMBER_MASK;
 			*string++;
+			counter++;
 		}
 	}
 	return hexAddress;
@@ -101,10 +104,12 @@ uint16_t asciiToHex(uint8_t *string)
 uint8_t asciitoDec(uint8_t *string)
 {
 	uint8_t decNum = 0;
-	while(*string)
+	uint8_t counter = 0;
+	while(2 > counter)
 	{
 		decNum = decNum*10 + (*string - ASCII_NUMBER_MASK);
 		*string++;
+		counter++;
 	}
 	return decNum;
 }
@@ -145,7 +150,19 @@ void menu0_Task(void *parameter)
 			}
 			else
 			{
-				xTaskCreate(memread_task, "memread_task", configMINIMAL_STACK_SIZE, (void*)UART_0, configMAX_PRIORITIES-2, NULL);
+				xTaskCreate(memread_task, "memread_task", configMINIMAL_STACK_SIZE + 50, (void*)UART_0, configMAX_PRIORITIES-2, NULL);
+				vTaskSuspend(NULL);
+			}
+			break;
+		case 2:
+			if(NULL != xTaskGetHandle("memwrite_task"))
+			{
+				UART_putString(UART_0, (uint8_t*) errorMes_Txt);
+				vTaskDelay(pdMS_TO_TICKS(3000));
+			}
+			else
+			{
+				xTaskCreate(memWrite_task, "memwrite_task", configMINIMAL_STACK_SIZE + 100, (void*)UART_0, configMAX_PRIORITIES-2, NULL);
 				vTaskSuspend(NULL);
 			}
 			break;
@@ -210,16 +227,8 @@ void menu0_Task(void *parameter)
 			}
 			break;
 		case 8:
-//			if(NULL != xTaskGetHandle("chat_task"))
-//			{
-//				UART_putString(UART_0, (uint8_t*) errorMes_Txt);
-//				vTaskDelay(pdMS_TO_TICKS(3000));
-//			}
-//			else
-//			{
-				xTaskCreate(chat_task, "chat_task", 300, (void*)UART_0, configMAX_PRIORITIES-2, NULL);
+				xTaskCreate(chat_task, "chat_task", configMINIMAL_STACK_SIZE + 300, (void*)UART_0, configMAX_PRIORITIES-2, NULL);
 				vTaskSuspend(NULL);
-//			}
 			break;
 		case 9:
 			vTaskSuspend(timedateLCD_handle);
@@ -264,8 +273,20 @@ void menu3_Task(void *parameter)
 			}
 			else
 			{
-			xTaskCreate(memread_task, "memread_task", configMINIMAL_STACK_SIZE, (void*)UART_3, configMAX_PRIORITIES-2, NULL);
+			xTaskCreate(memread_task, "memread_task", configMINIMAL_STACK_SIZE + 50, (void*)UART_3, configMAX_PRIORITIES-2, NULL);
 			vTaskSuspend(NULL);
+			}
+			break;
+		case 2:
+			if(NULL != xTaskGetHandle("memwrite_task"))
+			{
+				UART_putString(UART_3, (uint8_t*) errorMes_Txt);
+				vTaskDelay(pdMS_TO_TICKS(3000));
+			}
+			else
+			{
+				xTaskCreate(memWrite_task, "memwrite_task", configMINIMAL_STACK_SIZE + 100, (void*)UART_3, configMAX_PRIORITIES-2, NULL);
+				vTaskSuspend(NULL);
 			}
 			break;
 		case 3:
@@ -329,7 +350,7 @@ void menu3_Task(void *parameter)
 			}
 			break;
 		case 8:
-			xTaskCreate(chat_task, "chat2_task", 300, (void*)UART_3, configMAX_PRIORITIES-2, NULL);
+			xTaskCreate(chat_task, "chat2_task", configMINIMAL_STACK_SIZE + 300, (void*)UART_3, configMAX_PRIORITIES-2, NULL);
 			vTaskSuspend(NULL);
 			break;
 		case 9:
@@ -559,31 +580,31 @@ void echo_Task(void * uart_module)
 	}
 }
 
-void memread_task(void *parameters){
+void memread_task(void * uart_module){
 
 	uint16_t subaddress = 0;
 	uint16_t readlen = 0;
-	uint8_t charAddress[5];
+	uint8_t charAddress[4];
 	uint8_t charlen[3];
 	uint8_t charCounter = 0;
-	static uint8_t *recvBuff;
+	uint8_t *recvBuff = malloc(sizeof(uint8_t));
 
-	UART_putString(UART_0, (uint8_t*)memread_Txt);
+	UART_putString((UART_Module)uart_module, (uint8_t*)memread_Txt);
 
 	while(1){
 
-		UART_putString(UART_0, (uint8_t*)"\r\nIngrese la direccion de memoria inicial: 0x");
+		UART_putString((UART_Module)uart_module, (uint8_t*)"\r\nIngrese la direccion de memoria inicial: 0x");
 		while(4 > charCounter)
 		{
-			charAddress[charCounter] = UART_Echo(UART_0);
+			charAddress[charCounter] = UART_Echo((UART_Module)uart_module);
 			charCounter++;
 		}
 		charCounter = 0;
 		subaddress = asciiToHex(charAddress);
-		UART_putString(UART_0, (uint8_t*)"\r\nIngrese la cantidad de bytes a leer: ");
+		UART_putString((UART_Module)uart_module, (uint8_t*)"\r\nIngrese la cantidad de bytes a leer: ");
 		while(2 > charCounter)
 		{
-			charlen[charCounter] = UART_Echo(UART_0);
+			charlen[charCounter] = UART_Echo((UART_Module)uart_module);
 			charCounter++;
 		}
 		charCounter = 0;
@@ -592,15 +613,102 @@ void memread_task(void *parameters){
 		xSemaphoreTake(i2cbus_mutex, portMAX_DELAY);
 		if(kStatus_Fail == I2C_MEMRead(I2C0, MEM_DEVICE_ADD, subaddress, recvBuff, readlen))
 		{
-			UART_putString(UART_0, (uint8_t*) "ERROR READING MEMORY");
+			UART_putString((UART_Module)uart_module, (uint8_t*) "ERROR READING MEMORY");
 		}
 		else
 		{
-			UART_putBytes(UART_0, recvBuff, readlen);
+			UART_putString((UART_Module)uart_module, (uint8_t*)"\r\nDatos obtenidos de memoria: \r\n   -> ");
+			UART_putBytes((UART_Module)uart_module, recvBuff, readlen);
 		}
 		xSemaphoreGive(i2cbus_mutex);
+		UART_putString((UART_Module) uart_module, (uint8_t*)"\r\nPresiona cualquier tecla para salir...");
+		UART_Echo((UART_Module)uart_module);
+		switch((UART_Module)uart_module)
+		{
+		case UART_0:
+			vTaskResume(menu0Task_handle);
+			break;
+		case UART_3:
+			vTaskResume(menu3Task_handle);
+			break;
+		}
+		vTaskDelete(NULL);
+	}
+}
 
-		//TODO: FInish task
+void memWrite_task(void * uart_module)
+{
+	uint16_t subaddress = 0;
+	uint8_t charAddress[4];
+	uint8_t charCounter = 0;
+
+	uint8_t maxWriteLenght = 100;
+	uint8_t writeCounter = 0;
+
+	uint8_t dataByteBuffer[maxWriteLenght];
+	uint8_t dataByte;
+
+	UART_putString((UART_Module)uart_module, (uint8_t*)memwrite_Txt);
+
+	while(1)
+	{
+
+		UART_putString((UART_Module)uart_module, (uint8_t*)"\r\nIngrese la direccion de memoria inicial: 0x");
+		while(4 > charCounter)
+		{
+			charAddress[charCounter] = UART_Echo((UART_Module)uart_module);
+			charCounter++;
+		}
+		charCounter = 0;
+		subaddress = asciiToHex(charAddress);
+		UART_putString((UART_Module)uart_module, (uint8_t*)"\r\nIngrese los datos a escribir:\r\n");
+
+		while(maxWriteLenght > writeCounter)
+		{
+			dataByte = UART_Echo((UART_Module)uart_module);
+			if(ESC_KEY == dataByte)
+			{
+				switch((UART_Module)uart_module)
+				{
+				case UART_0:
+					vTaskResume(menu0Task_handle);
+					break;
+				case UART_3:
+					vTaskResume(menu3Task_handle);
+					break;
+				}
+				vTaskDelete(NULL);
+			}
+			if(ENTER_KEY == dataByte)
+			{
+				UART_putString((UART_Module)uart_module, (uint8_t*)"\r\nEscribiendo en memoria...\r\n");
+				xSemaphoreTake(i2cbus_mutex, portMAX_DELAY);
+				if(kStatus_Fail == I2C_MEMWrite(I2C0, MEM_DEVICE_ADD, subaddress, dataByteBuffer, writeCounter))
+				{
+					UART_putString((UART_Module)uart_module, (uint8_t*) "\r\nError de escritura\r\n");
+				}
+				else
+				{
+					UART_putString((UART_Module)uart_module, (uint8_t*) "\r\nTransferencia realizada!\r\n");
+				}
+				xSemaphoreGive(i2cbus_mutex);
+				UART_putString((UART_Module)uart_module, (uint8_t*)"\r\nSaliendo ...\r\n");
+				vTaskDelay(pdMS_TO_TICKS(2000));
+				switch((UART_Module)uart_module)
+				{
+				case UART_0:
+					vTaskResume(menu0Task_handle);
+					break;
+				case UART_3:
+					vTaskResume(menu3Task_handle);
+					break;
+				}
+				vTaskDelete(NULL);
+			}
+			dataByteBuffer[writeCounter] = dataByte;
+			writeCounter++;
+		}
+		writeCounter = 0;
 	}
 }
 
@@ -1085,7 +1193,7 @@ void chat_task(void * uart_module)
 	chatBuffer_t *chatTxBuffer;
 	chatBuffer_t *chatRxBuffer;
 	uint8_t txCounter = 0;
-	EventBits_t event, uart_event;
+	EventBits_t uart_event;
 
 	UART_putString((UART_Module) uart_module, (uint8_t*)chat_Txt);
 

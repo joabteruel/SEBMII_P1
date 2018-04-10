@@ -8,6 +8,7 @@
 #ifndef USERTASK_H_
 #define USERTASK_H_
 
+#include <stdlib.h>
 #include "FreeRTOS.h"
 #include "task.h"
 #include "fsl_uart_freertos.h"
@@ -102,6 +103,7 @@ void getTime_task(void *parameter);
 void echo_Task(void * uart_module);
 void osNotDeadLED(void * params);
 void memread_task(void * uart_module);
+void memWrite_task(void * uart_module);
 void setTime_task(void * uart_module);
 void setDate_task(void * uart_module);
 void hourFormat_task(void * uart_module);
@@ -143,6 +145,13 @@ static const uint8_t memread_Txt[] =
 		"\033[2;2H\r"
 		"----------------------------\r\n"
 		"|    Lectura de Memoria    |\r\n"
+		"----------------------------\r\n\n";
+
+static const uint8_t memwrite_Txt[] =
+		"\033[2J"
+		"\033[2;2H\r"
+		"----------------------------\r\n"
+		"|   Escritura de Memoria   |\r\n"
 		"----------------------------\r\n\n";
 
 static const uint8_t setTime_Txt[] =

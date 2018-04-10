@@ -122,8 +122,6 @@ void BOARD_InitPins(void)
 	PORT_SetPinMux(PORTD, PIN1_IDX, kPORT_MuxAlt2); /* PORTD1 (pin D4) is configured as SPI0_SCK */
 	PORT_SetPinMux(PORTD, PIN2_IDX, kPORT_MuxAlt2); /* PORTD2 (pin C4) is configured as SPI0_SOUT */
 	PORT_SetPinMux(PORTD, PIN3_IDX, kPORT_MuxAsGpio); /* PORTD3 (pin B4) is configured as SPI0_SIN */
-	PORT_SetPinMux(PORTE, PIN24_IDX, kPORT_MuxAlt5); /* PORTE24 (pin 31) is configured as I2C0_SCL */
-	PORT_SetPinMux(PORTE, PIN25_IDX, kPORT_MuxAlt5); /* PORTE25 (pin 32) is configured as I2C0_SDA */
 	SIM->SOPT5 = ((SIM->SOPT5 & (~(SIM_SOPT5_UART0TXSRC_MASK))) /* Mask bits to zero which are setting */
 	| SIM_SOPT5_UART0TXSRC(SOPT5_UART0TXSRC_UART_TX) /* UART 0 transmit data source select: UART0_TX pin */
 	);
